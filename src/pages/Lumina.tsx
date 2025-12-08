@@ -18,6 +18,8 @@ import { ContentOrganizerTab } from '@/components/lumina/ContentOrganizerTab';
 import { OrdersTab } from '@/components/lumina/OrdersTab';
 import { NotificationsDropdown } from '@/components/lumina/NotificationsDropdown';
 import { useAuth } from '@/hooks/useAuth';
+import { TeamProfileSelector } from '@/components/team/TeamProfileSelector';
+import { useTeam } from '@/hooks/useTeam';
 
 interface ContentItem {
   id: number;
@@ -95,6 +97,7 @@ const StatCard = ({ icon: Icon, label, value, gradient }: {
 export default function Lumina() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { joinedTeams, activeTeamId, getActiveTeam, isTabShared } = useTeam();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'sponsorship' | 'orders' | 'organizer' | 'calendar' | 'profile'>('dashboard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
@@ -220,8 +223,30 @@ export default function Lumina() {
     { id: 'profile', label: 'Meu Perfil', icon: User },
   ];
 
+  // Check if user is viewing a shared team tab
+  const activeTeam = getActiveTeam();
+  const isViewingTeamContent = activeTeamId && activeTeam && isTabShared('lumina');
+
   return (
     <AppLayout title="Lumina Creators" subtitle="Ferramentas para criadores de conteúdo">
+      {/* Team Profile Selector for guests */}
+      {joinedTeams.length > 0 && (
+        <TeamProfileSelector
+          onSelectTeam={() => {}}
+          onUsePersonal={() => {}}
+          currentTab="lumina"
+        />
+      )}
+
+      {/* Show team banner if viewing team content */}
+      {isViewingTeamContent && (
+        <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <p className="text-sm text-primary font-medium">
+            Visualizando conteúdo da equipe: {activeTeam?.name}
+          </p>
+        </div>
+      )}
+
       {/* Online Status & Notifications */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border">
