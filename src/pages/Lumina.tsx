@@ -13,6 +13,8 @@ import {
 import { tmdbService } from '@/services/tmdbService';
 import { cn } from '@/lib/utils';
 import { CreatorProfileConfig } from '@/components/lumina/CreatorProfileConfig';
+import { CalendarTab } from '@/components/lumina/CalendarTab';
+import { ContentOrganizerTab } from '@/components/lumina/ContentOrganizerTab';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ContentItem {
@@ -373,147 +375,10 @@ export default function Lumina() {
       )}
 
       {/* Organizer Tab */}
-      {activeTab === 'organizer' && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">Organizador de Conteúdo</h2>
-            <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Conteúdo
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Buscar Conteúdo</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Buscar filmes ou séries..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <Button onClick={handleSearch} disabled={isSearching}>
-                      {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  
-                  <div className="max-h-96 overflow-y-auto space-y-2 scrollbar-thin">
-                    {searchResults.map((result) => (
-                      <div
-                        key={result.id}
-                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                      >
-                        <img
-                          src={tmdbService.getImageUrl(result.poster_path, 'w92')}
-                          alt={result.title || result.name}
-                          className="w-12 h-16 object-cover rounded"
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">{result.title || result.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Badge variant="outline">
-                              {result.media_type === 'movie' ? 'Filme' : 'Série'}
-                            </Badge>
-                            <span className="flex items-center gap-1">
-                              <Star className="w-3 h-3 text-warning fill-warning" />
-                              {result.vote_average?.toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant={organizerContent.some(c => c.id === result.id) ? "secondary" : "default"}
-                          onClick={() => addToOrganizer(result)}
-                          disabled={organizerContent.some(c => c.id === result.id)}
-                        >
-                          {organizerContent.some(c => c.id === result.id) ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Plus className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-          
-          {organizerContent.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {organizerContent.map((content) => (
-                <motion.div
-                  key={content.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="group relative"
-                >
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={tmdbService.getImageUrl(content.poster_path)}
-                      alt={content.title || content.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-medium text-white line-clamp-2">
-                        {content.title || content.name}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <Star className="w-3 h-3 text-warning fill-warning" />
-                        <span className="text-xs text-white/70">{content.vote_average?.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeFromOrganizer(content.id)}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <Film className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
-              <p className="text-muted-foreground">Nenhum conteúdo no organizador</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Clique em "Adicionar Conteúdo" para começar</p>
-            </div>
-          )}
-        </motion.div>
-      )}
+      {activeTab === 'organizer' && <ContentOrganizerTab />}
 
       {/* Calendar Tab */}
-      {activeTab === 'calendar' && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">Calendário</h2>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Evento
-            </Button>
-          </div>
-          
-          <div className="bg-card rounded-xl border border-border p-12 text-center">
-            <Calendar className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
-            <p className="text-muted-foreground">Calendário de eventos em desenvolvimento...</p>
-          </div>
-        </motion.div>
-      )}
+      {activeTab === 'calendar' && <CalendarTab />}
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
