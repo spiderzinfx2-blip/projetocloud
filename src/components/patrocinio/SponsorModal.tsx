@@ -55,6 +55,7 @@ interface SelectedEpisode {
   episode: number;
   name: string;
   id: number;
+  wantsPriority: boolean;
 }
 
 interface ExistingContent {
@@ -267,7 +268,8 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         season: episode.season_number,
         episode: episode.episode_number,
         name: episode.name,
-        id: episode.id
+        id: episode.id,
+        wantsPriority: false
       }]);
     }
   };
@@ -284,12 +286,21 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         season: ep.season_number,
         episode: ep.episode_number,
         name: ep.name,
-        id: ep.id
+        id: ep.id,
+        wantsPriority: false
       }));
     
     // Merge with existing from other seasons
     const otherSeasons = selectedEpisodes.filter(e => e.season !== selectedSeason);
     setSelectedEpisodes([...otherSeasons, ...allEps]);
+  };
+
+  const toggleEpisodePriority = (episode: SelectedEpisode) => {
+    setSelectedEpisodes(prev => prev.map(ep => 
+      ep.season === episode.season && ep.episode === episode.episode
+        ? { ...ep, wantsPriority: !ep.wantsPriority }
+        : ep
+    ));
   };
 
   const deselectAllEpisodes = () => {
@@ -301,6 +312,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     if (!selectedContent || !profile) return { base: 0, priority: 0, total: 0 };
     
     let basePrice = 0;
+    let priorityPrice = 0;
     
     if (selectedContent.media_type === 'movie') {
       // If already paid, only charge priority if applicable
@@ -312,6 +324,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
           ? (profile.moviePriceLong || 0) 
           : (profile.moviePriceShort || 0);
       }
+      priorityPrice = wantsPriority ? (profile.priorityPrice || 0) : 0;
     } else {
       // For TV, count episodes minus already paid ones
       const paidEps = existingContent?.episodes?.filter(e => e.isPaid) || [];
@@ -320,14 +333,17 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       );
       
       basePrice = unpaidSelected.length * (profile.episodePrice || 0);
+      
+      // Count episodes with priority
+      const episodesWithPriority = selectedEpisodes.filter(ep => ep.wantsPriority).length;
+      priorityPrice = episodesWithPriority * (profile.priorityPrice || 0);
     }
-    
-    const priorityPrice = wantsPriority ? (profile.priorityPrice || 0) : 0;
     
     return {
       base: basePrice,
       priority: priorityPrice,
-      total: basePrice + priorityPrice
+      total: basePrice + priorityPrice,
+      episodesWithPriority: selectedEpisodes.filter(ep => ep.wantsPriority).length
     };
   }, [selectedContent, profile, contentDetails, existingContent, selectedEpisodes, wantsPriority]);
 
@@ -381,13 +397,14 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
           title: selectedContent?.name || selectedContent?.title || '',
           type: 'tv' as const,
           poster: selectedContent?.poster_path || '',
+          contentId: selectedContent?.id,
           episodeInfo: {
             seasonNumber: ep.season,
             episodeNumber: ep.episode,
             episodeName: ep.name
           },
           price: profile.episodePrice || 0,
-          wantsPriority: wantsPriority
+          wantsPriority: ep.wantsPriority // Per-episode priority
         }));
     
     // Create order in the correct format for OrdersTab
@@ -736,8 +753,8 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         </div>
       )}
       
-      {/* Priority Option */}
-      {!isBlocked && !existingContent?.isPriority && (
+      {/* Priority Option - Different for Movie vs TV */}
+      {!isBlocked && !existingContent?.isPriority && selectedContent?.media_type === 'movie' && (
         <button
           onClick={() => setWantsPriority(!wantsPriority)}
           className={cn(
@@ -763,6 +780,60 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         </button>
       )}
       
+      {/* Per-Episode Priority for TV Shows */}
+      {!isBlocked && selectedContent?.media_type === 'tv' && selectedEpisodes.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-warning" />
+              <p className="font-semibold text-sm">Prioridade por Episódio</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              +R$ {(profile.priorityPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} por episódio
+            </p>
+          </div>
+          
+          <ScrollArea className="h-[200px] pr-2">
+            <div className="space-y-2">
+              {selectedEpisodes.map((ep) => (
+                <button
+                  key={`${ep.season}-${ep.episode}`}
+                  onClick={() => toggleEpisodePriority(ep)}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
+                    ep.wantsPriority
+                      ? "border-warning bg-warning/5"
+                      : "border-border hover:border-warning/30"
+                  )}
+                >
+                  <Checkbox 
+                    checked={ep.wantsPriority} 
+                    className={cn(ep.wantsPriority && "border-warning bg-warning text-warning-foreground")}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      S{ep.season.toString().padStart(2, '0')}E{ep.episode.toString().padStart(2, '0')}: {ep.name}
+                    </p>
+                  </div>
+                  {ep.wantsPriority && (
+                    <Badge className="bg-warning/10 text-warning text-xs">
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      Prioridade
+                    </Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+          
+          {(pricing as any).episodesWithPriority > 0 && (
+            <p className="text-sm text-warning text-center">
+              {(pricing as any).episodesWithPriority} episódio(s) com prioridade
+            </p>
+          )}
+        </div>
+      )}
+      
       {/* Price Summary */}
       {!isBlocked && (
         <>
@@ -776,9 +847,13 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
               </span>
               <span>R$ {pricing.base.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
-            {wantsPriority && (
+            {pricing.priority > 0 && (
               <div className="flex justify-between text-sm text-warning">
-                <span>Prioridade</span>
+                <span>
+                  Prioridade {selectedContent?.media_type === 'tv' 
+                    ? `(${(pricing as any).episodesWithPriority} ep.)` 
+                    : ''}
+                </span>
                 <span>+R$ {pricing.priority.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}

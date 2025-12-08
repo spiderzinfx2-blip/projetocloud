@@ -16,6 +16,7 @@ import { CreatorProfileConfig } from '@/components/lumina/CreatorProfileConfig';
 import { CalendarTab } from '@/components/lumina/CalendarTab';
 import { ContentOrganizerTab } from '@/components/lumina/ContentOrganizerTab';
 import { OrdersTab } from '@/components/lumina/OrdersTab';
+import { NotificationsDropdown } from '@/components/lumina/NotificationsDropdown';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ContentItem {
@@ -221,7 +222,7 @@ export default function Lumina() {
 
   return (
     <AppLayout title="Lumina Creators" subtitle="Ferramentas para criadores de conteúdo">
-      {/* Online Status */}
+      {/* Online Status & Notifications */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border">
           {isOnline ? (
@@ -237,12 +238,19 @@ export default function Lumina() {
           )}
         </div>
         
-        {creatorProfile?.isPublic && creatorProfile?.username && (
-          <Button variant="outline" size="sm" onClick={() => navigate(`/patrocinio/@${creatorProfile.username}`)}>
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Ver Perfil Público
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Notifications */}
+          {creatorProfile?.username && (
+            <NotificationsDropdown username={creatorProfile.username} />
+          )}
+          
+          {creatorProfile?.isPublic && creatorProfile?.username && (
+            <Button variant="outline" size="sm" onClick={() => navigate(`/patrocinio/@${creatorProfile.username}`)}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Ver Perfil Público
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tab Navigation */}

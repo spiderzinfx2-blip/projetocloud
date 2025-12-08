@@ -112,33 +112,94 @@ export function OrdersTab() {
     const savedOrganizer = localStorage.getItem('organizer-content');
     const organizerContent = savedOrganizer ? JSON.parse(savedOrganizer) : [];
     
+    // Group items by content ID for series
+    const itemsByContent: { [key: number]: typeof order.items } = {};
     order.items.forEach(item => {
-      const contentItem = {
-        id: item.id,
-        title: item.title,
-        name: item.title,
-        media_type: item.type,
-        poster_path: item.poster,
-        isPaidAdvanced: true,
-        priority: item.wantsPriority ? 5 : 1,
-        sponsorName: order.buyerInfo.name,
-        sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
-        sponsorEmail: order.buyerInfo.email,
-        orderCode: order.orderCode,
-        addedDate: new Date().toISOString(),
-        isWatched: false,
-        episodeInfo: item.episodeInfo
-      };
+      if (!itemsByContent[item.id]) {
+        itemsByContent[item.id] = [];
+      }
+      itemsByContent[item.id].push(item);
+    });
+    
+    Object.entries(itemsByContent).forEach(([contentId, items]) => {
+      const firstItem = items[0];
+      const existingIndex = organizerContent.findIndex((c: any) => c.id === parseInt(contentId));
       
-      // Check if already exists
-      const exists = organizerContent.find((c: any) => 
-        c.id === item.id && 
-        c.episodeInfo?.episodeNumber === item.episodeInfo?.episodeNumber &&
-        c.episodeInfo?.seasonNumber === item.episodeInfo?.seasonNumber
-      );
-      
-      if (!exists) {
-        organizerContent.push(contentItem);
+      if (firstItem.type === 'tv') {
+        // For TV, group all episodes together
+        const newEpisodes = items.map(item => ({
+          season: item.episodeInfo?.seasonNumber || 1,
+          episode: item.episodeInfo?.episodeNumber || 1,
+          isPaid: true,
+          isPriority: item.wantsPriority,
+          sponsorName: order.buyerInfo.name,
+          paidDate: new Date().toISOString()
+        }));
+        
+        if (existingIndex >= 0) {
+          // Update existing content with new episodes
+          const existing = organizerContent[existingIndex];
+          const existingEpisodes = existing.sponsoredEpisodes || [];
+          
+          newEpisodes.forEach(newEp => {
+            const epIndex = existingEpisodes.findIndex((e: any) => 
+              e.season === newEp.season && e.episode === newEp.episode
+            );
+            if (epIndex >= 0) {
+              existingEpisodes[epIndex] = { ...existingEpisodes[epIndex], ...newEp };
+            } else {
+              existingEpisodes.push(newEp);
+            }
+          });
+          
+          organizerContent[existingIndex] = {
+            ...existing,
+            sponsoredEpisodes: existingEpisodes,
+            sponsorName: order.buyerInfo.name,
+            sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
+            orderCode: order.orderCode
+          };
+        } else {
+          // Create new content with episodes
+          // Determine priority: if any episode has priority, set high priority
+          const hasPriority = items.some(i => i.wantsPriority);
+          
+          organizerContent.push({
+            id: parseInt(contentId),
+            title: firstItem.title,
+            name: firstItem.title,
+            media_type: 'tv',
+            poster_path: firstItem.poster,
+            isPaidAdvanced: true,
+            priority: hasPriority ? 4 : 1, // 4 = High priority if any episode has priority
+            sponsorName: order.buyerInfo.name,
+            sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
+            sponsorEmail: order.buyerInfo.email,
+            orderCode: order.orderCode,
+            addedDate: new Date().toISOString(),
+            isWatched: false,
+            sponsoredEpisodes: newEpisodes
+          });
+        }
+      } else {
+        // For movies, add as single item
+        if (existingIndex < 0) {
+          organizerContent.push({
+            id: parseInt(contentId),
+            title: firstItem.title,
+            name: firstItem.title,
+            media_type: 'movie',
+            poster_path: firstItem.poster,
+            isPaidAdvanced: true,
+            priority: firstItem.wantsPriority ? 4 : 1, // 4 = High priority
+            sponsorName: order.buyerInfo.name,
+            sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
+            sponsorEmail: order.buyerInfo.email,
+            orderCode: order.orderCode,
+            addedDate: new Date().toISOString(),
+            isWatched: false
+          });
+        }
       }
     });
     
