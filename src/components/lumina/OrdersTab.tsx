@@ -20,6 +20,7 @@ interface OrderItem {
   type: 'movie' | 'tv';
   poster: string;
   runtime?: number;
+  contentId?: number; // For TV shows, this is the series ID
   episodeInfo?: {
     seasonNumber: number;
     episodeNumber: number;
@@ -74,29 +75,30 @@ export function OrdersTab() {
     }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: 'paid' | 'completed' | 'cancelled') => {
+  const updateOrderStatus = async (orderId: string, newStatus: 'paid' | 'completed' | 'cancelled') => {
     const savedOrders = localStorage.getItem('sponsor-orders');
     if (savedOrders) {
       const allOrders: SponsorOrder[] = JSON.parse(savedOrders);
+      const orderToUpdate = allOrders.find(o => o.id === orderId);
+      
       const updatedOrders = allOrders.map(order => {
         if (order.id === orderId) {
-          const updated = { 
+          return { 
             ...order, 
             status: newStatus,
             ...(newStatus === 'paid' ? { paidAt: new Date().toISOString() } : {})
           };
-          
-          // If marking as paid, add items to organizer
-          if (newStatus === 'paid') {
-            addItemsToOrganizer(order);
-          }
-          
-          return updated;
         }
         return order;
       });
       
       localStorage.setItem('sponsor-orders', JSON.stringify(updatedOrders));
+      
+      // If marking as paid, add items to organizer
+      if (newStatus === 'paid' && orderToUpdate) {
+        await addItemsToOrganizer(orderToUpdate);
+      }
+      
       loadOrders();
       setShowOrderDetails(false);
       
@@ -108,20 +110,24 @@ export function OrdersTab() {
     }
   };
 
-  const addItemsToOrganizer = (order: SponsorOrder) => {
+  const addItemsToOrganizer = async (order: SponsorOrder) => {
     const savedOrganizer = localStorage.getItem('organizer-content');
     const organizerContent = savedOrganizer ? JSON.parse(savedOrganizer) : [];
     
-    // Group items by content ID for series
+    // Group items by content ID for series (use contentId for TV shows, id for movies)
     const itemsByContent: { [key: number]: typeof order.items } = {};
     order.items.forEach(item => {
-      if (!itemsByContent[item.id]) {
-        itemsByContent[item.id] = [];
+      // For TV shows, use contentId (the series ID), for movies use id
+      const groupKey = item.type === 'tv' && (item as any).contentId 
+        ? (item as any).contentId 
+        : item.id;
+      if (!itemsByContent[groupKey]) {
+        itemsByContent[groupKey] = [];
       }
-      itemsByContent[item.id].push(item);
+      itemsByContent[groupKey].push(item);
     });
     
-    Object.entries(itemsByContent).forEach(([contentId, items]) => {
+    for (const [contentId, items] of Object.entries(itemsByContent)) {
       const firstItem = items[0];
       const existingIndex = organizerContent.findIndex((c: any) => c.id === parseInt(contentId));
       
@@ -160,9 +166,26 @@ export function OrdersTab() {
             orderCode: order.orderCode
           };
         } else {
-          // Create new content with episodes
-          // Determine priority: if any episode has priority, set high priority
+          // Create new content with episodes - fetch season info from TMDB
           const hasPriority = items.some(i => i.wantsPriority);
+          
+          // Fetch TV details to get seasons info
+          let seasons: any[] = [];
+          try {
+            const tvId = (firstItem as any).contentId || parseInt(contentId);
+            const details = await tmdbService.getTVDetails(tvId);
+            if (details?.seasons) {
+              seasons = details.seasons
+                .filter((s: any) => s.season_number > 0)
+                .map((s: any) => ({
+                  season_number: s.season_number,
+                  episode_count: s.episode_count,
+                  name: s.name
+                }));
+            }
+          } catch (e) {
+            console.error('Error fetching TV details:', e);
+          }
           
           organizerContent.push({
             id: parseInt(contentId),
@@ -171,14 +194,15 @@ export function OrdersTab() {
             media_type: 'tv',
             poster_path: firstItem.poster,
             isPaidAdvanced: true,
-            priority: hasPriority ? 4 : 1, // 4 = High priority if any episode has priority
+            priority: hasPriority ? 4 : 1,
             sponsorName: order.buyerInfo.name,
             sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
             sponsorEmail: order.buyerInfo.email,
             orderCode: order.orderCode,
             addedDate: new Date().toISOString(),
             isWatched: false,
-            sponsoredEpisodes: newEpisodes
+            sponsoredEpisodes: newEpisodes,
+            seasons: seasons
           });
         }
       } else {
@@ -191,7 +215,7 @@ export function OrdersTab() {
             media_type: 'movie',
             poster_path: firstItem.poster,
             isPaidAdvanced: true,
-            priority: firstItem.wantsPriority ? 4 : 1, // 4 = High priority
+            priority: firstItem.wantsPriority ? 4 : 1,
             sponsorName: order.buyerInfo.name,
             sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
             sponsorEmail: order.buyerInfo.email,
@@ -201,7 +225,7 @@ export function OrdersTab() {
           });
         }
       }
-    });
+    }
     
     localStorage.setItem('organizer-content', JSON.stringify(organizerContent));
   };
