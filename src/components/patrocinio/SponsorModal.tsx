@@ -466,16 +466,52 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
   const handleExportPNG = async () => {
     if (summaryRef.current) {
       try {
-        const canvas = await html2canvas(summaryRef.current, {
+        // Clone the element to replace images with base64 versions
+        const clone = summaryRef.current.cloneNode(true) as HTMLElement;
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        clone.style.background = '#1a1a2e';
+        document.body.appendChild(clone);
+        
+        // Convert all images to base64
+        const images = clone.querySelectorAll('img');
+        await Promise.all(
+          Array.from(images).map(async (img) => {
+            try {
+              const response = await fetch(img.src);
+              const blob = await response.blob();
+              return new Promise<void>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  img.src = reader.result as string;
+                  resolve();
+                };
+                reader.readAsDataURL(blob);
+              });
+            } catch {
+              // If fetch fails, remove the image
+              img.style.display = 'none';
+            }
+          })
+        );
+        
+        const canvas = await html2canvas(clone, {
           backgroundColor: '#1a1a2e',
-          scale: 2
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
         });
+        
+        document.body.removeChild(clone);
+        
         const link = document.createElement('a');
         link.download = `patrocinio_${orderCode}_${selectedContent?.title || selectedContent?.name}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         toast({ title: 'Imagem exportada com sucesso!' });
       } catch (error) {
+        console.error('Export error:', error);
         toast({ title: 'Erro ao exportar imagem', variant: 'destructive' });
       }
     }

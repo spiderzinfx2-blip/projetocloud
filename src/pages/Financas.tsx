@@ -1,12 +1,13 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, parseISO, isWithinInterval, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   DollarSign, TrendingUp, TrendingDown, Plus, Minus,
   ChevronLeft, ChevronRight, Calendar, PieChart, BarChart3,
   Repeat, Tag, Trash2, Edit2, Settings, ArrowUpCircle, ArrowDownCircle,
-  Wallet, Target, Filter, X, Download, FileText, Flag
+  Wallet, Target, Filter, X, Download, FileText, Flag, Bell, AlertTriangle,
+  CalendarRange, LineChart as LineChartIcon
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,11 @@ export default function Financas() {
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  
+  // Advanced period filter
+  const [filterPeriod, setFilterPeriod] = useState<'month' | 'custom'>('month');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   // Form state
   const [formType, setFormType] = useState<TransactionType>('expense');
@@ -88,13 +94,107 @@ export default function Financas() {
   const recurringTransactions = useMemo(() => getRecurringTransactions(), [getRecurringTransactions]);
   const monthlyGoals = useMemo(() => getMonthlyGoals(currentYear, currentMonth), [getMonthlyGoals, currentYear, currentMonth]);
 
+  // Goal notifications
+  useEffect(() => {
+    const notifiedKey = `goal_notifications_${currentYear}_${currentMonth}`;
+    const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
+    
+    monthlyGoals.forEach(goal => {
+      if (alreadyNotified.includes(goal.id)) return;
+      
+      // Notify when goal is close (80%+) or exceeded
+      if (goal.type === 'expense_limit') {
+        if (goal.progress >= 100 && !goal.isCompleted) {
+          toast({
+            title: '⚠️ Limite Excedido!',
+            description: `"${goal.name}" ultrapassou o limite de ${formatCurrency(goal.targetAmount)}`,
+            variant: 'destructive',
+          });
+          alreadyNotified.push(goal.id);
+        } else if (goal.progress >= 80 && goal.progress < 100) {
+          toast({
+            title: '⚡ Limite Próximo!',
+            description: `"${goal.name}" está em ${goal.progress.toFixed(0)}% do limite`,
+          });
+          alreadyNotified.push(goal.id);
+        }
+      } else {
+        if (goal.isCompleted) {
+          toast({
+            title: '🎉 Meta Atingida!',
+            description: `"${goal.name}" foi concluída com sucesso!`,
+          });
+          alreadyNotified.push(goal.id);
+        } else if (goal.progress >= 80 && goal.progress < 100) {
+          toast({
+            title: '🚀 Quase lá!',
+            description: `"${goal.name}" está em ${goal.progress.toFixed(0)}% da meta`,
+          });
+          alreadyNotified.push(goal.id);
+        }
+      }
+    });
+    
+    localStorage.setItem(notifiedKey, JSON.stringify(alreadyNotified));
+  }, [monthlyGoals, currentYear, currentMonth]);
+
+  // Filtered transactions with custom period support
   const filteredTransactions = useMemo(() => {
-    return monthlySummary.transactions.filter(t => {
+    let filtered = filterPeriod === 'month' 
+      ? monthlySummary.transactions 
+      : transactions.filter(t => {
+          if (!filterStartDate || !filterEndDate) return true;
+          const date = parseISO(t.date);
+          return isWithinInterval(date, {
+            start: parseISO(filterStartDate),
+            end: parseISO(filterEndDate)
+          });
+        });
+    
+    return filtered.filter(t => {
       if (filterType !== 'all' && t.type !== filterType) return false;
       if (filterCategory !== 'all' && t.category !== filterCategory) return false;
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [monthlySummary.transactions, filterType, filterCategory]);
+  }, [monthlySummary.transactions, transactions, filterType, filterCategory, filterPeriod, filterStartDate, filterEndDate]);
+
+  // Wealth evolution data (cumulative balance over time)
+  const wealthEvolutionData = useMemo(() => {
+    const sortedTransactions = [...transactions].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    
+    let cumulativeBalance = 0;
+    const dataByMonth: { [key: string]: number } = {};
+    
+    sortedTransactions.forEach(t => {
+      const monthKey = format(new Date(t.date), 'yyyy-MM');
+      const amount = t.type === 'income' ? t.amount : -t.amount;
+      cumulativeBalance += amount;
+      dataByMonth[monthKey] = cumulativeBalance;
+    });
+    
+    // Get last 12 months
+    const months: { month: string; balance: number }[] = [];
+    let runningBalance = 0;
+    
+    for (let i = 11; i >= 0; i--) {
+      const date = subMonths(new Date(), i);
+      const monthKey = format(date, 'yyyy-MM');
+      const monthLabel = format(date, 'MMM/yy', { locale: ptBR });
+      
+      if (dataByMonth[monthKey] !== undefined) {
+        runningBalance = dataByMonth[monthKey];
+      }
+      
+      months.push({
+        month: monthLabel,
+        balance: runningBalance
+      });
+    }
+    
+    return months;
+  }, [transactions]);
 
   const incomeCategories = categories.filter(c => c.type === 'income');
   const expenseCategories = categories.filter(c => c.type === 'expense');
@@ -706,6 +806,43 @@ export default function Financas() {
                 </div>
               </motion.div>
 
+              {/* Wealth Evolution Chart */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
+                className="lg:col-span-2 bg-card rounded-xl border border-border p-5"
+              >
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <LineChartIcon className="w-5 h-5 text-primary" />
+                  Evolução Patrimonial (Últimos 12 meses)
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={wealthEvolutionData}>
+                      <defs>
+                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="balance" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        fill="url(#colorBalance)" 
+                        name="Saldo Acumulado"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </motion.div>
+
               {/* Yearly Summary */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -749,8 +886,38 @@ export default function Financas() {
               animate={{ opacity: 1 }}
               className="bg-card rounded-xl border border-border p-5"
             >
-              {/* Filters */}
+              {/* Advanced Filters */}
               <div className="flex flex-wrap gap-3 mb-4">
+                <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as 'month' | 'custom')}>
+                  <SelectTrigger className="w-[140px]">
+                    <CalendarRange className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Mês Atual</SelectItem>
+                    <SelectItem value="custom">Período Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {filterPeriod === 'custom' && (
+                  <>
+                    <Input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="w-[150px]"
+                      placeholder="Data início"
+                    />
+                    <Input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="w-[150px]"
+                      placeholder="Data fim"
+                    />
+                  </>
+                )}
+                
                 <Select value={filterType} onValueChange={(v) => setFilterType(v as any)}>
                   <SelectTrigger className="w-[140px]">
                     <Filter className="w-4 h-4 mr-2" />
@@ -776,8 +943,18 @@ export default function Financas() {
                   </SelectContent>
                 </Select>
 
-                {(filterType !== 'all' || filterCategory !== 'all') && (
-                  <Button variant="ghost" size="sm" onClick={() => { setFilterType('all'); setFilterCategory('all'); }}>
+                {(filterType !== 'all' || filterCategory !== 'all' || filterPeriod === 'custom') && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { 
+                      setFilterType('all'); 
+                      setFilterCategory('all'); 
+                      setFilterPeriod('month');
+                      setFilterStartDate('');
+                      setFilterEndDate('');
+                    }}
+                  >
                     <X className="w-4 h-4 mr-1" /> Limpar
                   </Button>
                 )}
