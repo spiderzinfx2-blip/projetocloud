@@ -170,6 +170,33 @@ export default function Lumina() {
   const handleSaveCreatorProfile = (profile: CreatorProfile) => {
     setCreatorProfile(profile);
     localStorage.setItem('creator-profile', JSON.stringify(profile));
+    
+    // Also save to public-profiles if public
+    if (profile.isPublic && profile.username) {
+      const publicProfiles = JSON.parse(localStorage.getItem('public-profiles') || '{}');
+      publicProfiles[profile.username.toLowerCase()] = {
+        id: profile.username,
+        username: profile.username,
+        name: profile.displayName || profile.username,
+        avatar: profile.avatar || '/placeholder.svg',
+        bio: profile.bio || 'Criador de conteúdo',
+        banner: profile.banner,
+        followers: 1000,
+        following: 500,
+        totalViews: 50000,
+        sponsoredContent: 25,
+        earnings: 5000,
+        rating: 4.8,
+        specialties: profile.specialties || ['Filmes', 'Séries'],
+        socialLinks: profile.socialLinks || {},
+        moviePriceShort: profile.moviePriceShort || 0,
+        moviePriceLong: profile.moviePriceLong || 0,
+        episodePrice: profile.episodePrice || 0,
+        priorityPrice: profile.priorityPrice || 0,
+        isPublic: true
+      };
+      localStorage.setItem('public-profiles', JSON.stringify(publicProfiles));
+    }
   };
 
   const tabs = [
