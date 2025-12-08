@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useAuth, UserData, saveUserData, loadUserData, Cliente, Servico, Trabalho } from '@/hooks/useAuth';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { cn } from '@/lib/utils';
+import { ClienteModal } from '@/components/management/ClienteModal';
+import { ServicoModal } from '@/components/management/ServicoModal';
+import { TrabalhoModal } from '@/components/management/TrabalhoModal';
+import { NotasTab } from '@/components/management/NotasTab';
+import { KanbanTab } from '@/components/management/KanbanTab';
+import { toast } from '@/hooks/use-toast';
 
 // Stats Card Component
 const StatCard = ({ icon: Icon, label, value, gradient }: { 
@@ -70,11 +76,21 @@ const ResumoTab = ({ trabalhos, clientes, servicos }: {
 };
 
 // Clientes Tab
-const ClientesTab = ({ clientes }: { clientes: Cliente[] }) => (
+const ClientesTab = ({ 
+  clientes, 
+  onAdd, 
+  onEdit, 
+  onDelete 
+}: { 
+  clientes: Cliente[];
+  onAdd: () => void;
+  onEdit: (cliente: Cliente) => void;
+  onDelete: (id: string) => void;
+}) => (
   <div className="bg-card rounded-xl border border-border overflow-hidden">
     <div className="flex items-center justify-between p-5 border-b border-border">
       <h3 className="text-lg font-semibold text-foreground">Clientes</h3>
-      <Button size="sm">
+      <Button size="sm" onClick={onAdd}>
         <Plus className="w-4 h-4 mr-2" />
         Novo Cliente
       </Button>
@@ -92,14 +108,14 @@ const ClientesTab = ({ clientes }: { clientes: Cliente[] }) => (
               </div>
               <div>
                 <p className="font-medium text-foreground">{cliente.nome}</p>
-                <p className="text-sm text-muted-foreground">{cliente.email}</p>
+                <p className="text-sm text-muted-foreground">{cliente.email || cliente.telefone || 'Sem contato'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(cliente)}>
                 <Edit2 className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(cliente.id)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
@@ -116,11 +132,21 @@ const ClientesTab = ({ clientes }: { clientes: Cliente[] }) => (
 );
 
 // Serviços Tab
-const ServicosTab = ({ servicos }: { servicos: Servico[] }) => (
+const ServicosTab = ({ 
+  servicos, 
+  onAdd, 
+  onEdit, 
+  onDelete 
+}: { 
+  servicos: Servico[];
+  onAdd: () => void;
+  onEdit: (servico: Servico) => void;
+  onDelete: (id: string) => void;
+}) => (
   <div className="bg-card rounded-xl border border-border overflow-hidden">
     <div className="flex items-center justify-between p-5 border-b border-border">
       <h3 className="text-lg font-semibold text-foreground">Serviços</h3>
-      <Button size="sm">
+      <Button size="sm" onClick={onAdd}>
         <Plus className="w-4 h-4 mr-2" />
         Novo Serviço
       </Button>
@@ -129,9 +155,19 @@ const ServicosTab = ({ servicos }: { servicos: Servico[] }) => (
     {servicos.length > 0 ? (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
         {servicos.map((servico) => (
-          <div key={servico.id} className="p-4 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors">
-            <p className="font-medium text-foreground mb-1">{servico.nome}</p>
-            <p className="text-sm text-muted-foreground mb-3">{servico.descricao}</p>
+          <div key={servico.id} className="p-4 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors group">
+            <div className="flex items-start justify-between mb-2">
+              <p className="font-medium text-foreground">{servico.nome}</p>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(servico)}>
+                  <Edit2 className="w-3 h-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(servico.id)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">{servico.descricao || 'Sem descrição'}</p>
             <p className="text-lg font-bold text-primary">
               R$ {servico.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
@@ -148,15 +184,25 @@ const ServicosTab = ({ servicos }: { servicos: Servico[] }) => (
 );
 
 // Trabalhos Tab
-const TrabalhosTab = ({ trabalhos, clientes, servicos }: { 
+const TrabalhosTab = ({ 
+  trabalhos, 
+  clientes, 
+  servicos,
+  onAdd,
+  onEdit,
+  onDelete
+}: { 
   trabalhos: Trabalho[]; 
   clientes: Cliente[]; 
   servicos: Servico[];
+  onAdd: () => void;
+  onEdit: (trabalho: Trabalho) => void;
+  onDelete: (id: string) => void;
 }) => (
   <div className="bg-card rounded-xl border border-border overflow-hidden">
     <div className="flex items-center justify-between p-5 border-b border-border">
       <h3 className="text-lg font-semibold text-foreground">Trabalhos</h3>
-      <Button size="sm">
+      <Button size="sm" onClick={onAdd}>
         <Plus className="w-4 h-4 mr-2" />
         Novo Trabalho
       </Button>
@@ -178,8 +224,8 @@ const TrabalhosTab = ({ trabalhos, clientes, servicos }: {
           return (
             <div key={trabalho.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
               <div>
-                <p className="font-medium text-foreground">{servico?.nome || 'Serviço'}</p>
-                <p className="text-sm text-muted-foreground">{cliente?.nome || 'Cliente'}</p>
+                <p className="font-medium text-foreground">{servico?.nome || trabalho.descricao || 'Serviço'}</p>
+                <p className="text-sm text-muted-foreground">{cliente?.nome || 'Cliente'} • {new Date(trabalho.data).toLocaleDateString('pt-BR')}</p>
               </div>
               <div className="flex items-center gap-4">
                 <span className={cn(
@@ -188,9 +234,17 @@ const TrabalhosTab = ({ trabalhos, clientes, servicos }: {
                 )}>
                   {trabalho.status}
                 </span>
-                <p className="font-bold text-foreground">
+                <p className="font-bold text-foreground min-w-[100px] text-right">
                   R$ {trabalho.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(trabalho)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(trabalho.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           );
@@ -219,8 +273,13 @@ const FaturamentoTab = ({ trabalhos }: { trabalhos: Trabalho[] }) => {
     return sum;
   }, 0);
 
+  const cancelado = trabalhos.reduce((sum, t) => {
+    if (t.status === 'cancelado') return sum + t.valor;
+    return sum;
+  }, 0);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
@@ -244,24 +303,35 @@ const FaturamentoTab = ({ trabalhos }: { trabalhos: Trabalho[] }) => {
           R$ {pendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
         </p>
       </div>
+
+      <div className="bg-card rounded-xl border border-border p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+            <DollarSign className="w-5 h-5 text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground">Cancelado</h3>
+        </div>
+        <p className="text-3xl font-bold text-destructive">
+          R$ {cancelado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </p>
+      </div>
     </div>
   );
 };
-
-// Placeholder Tab
-const PlaceholderTab = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
-  <div className="bg-card rounded-xl border border-border p-12 text-center">
-    <Icon className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
-    <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-    <p className="text-muted-foreground">Em desenvolvimento...</p>
-  </div>
-);
 
 // Main Component
 export default function Management() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('resumo');
   const [userData, setUserData] = useState<UserData | null>(null);
+
+  // Modal states
+  const [clienteModalOpen, setClienteModalOpen] = useState(false);
+  const [servicoModalOpen, setServicoModalOpen] = useState(false);
+  const [trabalhoModalOpen, setTrabalhoModalOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [editingServico, setEditingServico] = useState<Servico | null>(null);
+  const [editingTrabalho, setEditingTrabalho] = useState<Trabalho | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -292,6 +362,81 @@ export default function Management() {
     }
   }, [user?.id]);
 
+  const updateUserData = (newData: UserData) => {
+    if (!user) return;
+    setUserData(newData);
+    saveUserData(user.id, newData);
+  };
+
+  // Cliente handlers
+  const handleSaveCliente = (cliente: Cliente) => {
+    if (!userData) return;
+    const exists = userData.clientes?.find(c => c.id === cliente.id);
+    const newClientes = exists 
+      ? userData.clientes?.map(c => c.id === cliente.id ? cliente : c)
+      : [...(userData.clientes || []), cliente];
+    updateUserData({ ...userData, clientes: newClientes });
+    toast({ title: exists ? 'Cliente atualizado!' : 'Cliente criado!' });
+  };
+
+  const handleDeleteCliente = (id: string) => {
+    if (!userData) return;
+    if (confirm('Tem certeza que deseja excluir este cliente?')) {
+      updateUserData({ ...userData, clientes: userData.clientes?.filter(c => c.id !== id) });
+      toast({ title: 'Cliente excluído!' });
+    }
+  };
+
+  // Serviço handlers
+  const handleSaveServico = (servico: Servico) => {
+    if (!userData) return;
+    const exists = userData.servicos?.find(s => s.id === servico.id);
+    const newServicos = exists 
+      ? userData.servicos?.map(s => s.id === servico.id ? servico : s)
+      : [...(userData.servicos || []), servico];
+    updateUserData({ ...userData, servicos: newServicos });
+    toast({ title: exists ? 'Serviço atualizado!' : 'Serviço criado!' });
+  };
+
+  const handleDeleteServico = (id: string) => {
+    if (!userData) return;
+    if (confirm('Tem certeza que deseja excluir este serviço?')) {
+      updateUserData({ ...userData, servicos: userData.servicos?.filter(s => s.id !== id) });
+      toast({ title: 'Serviço excluído!' });
+    }
+  };
+
+  // Trabalho handlers
+  const handleSaveTrabalho = (trabalho: Trabalho) => {
+    if (!userData) return;
+    const exists = userData.trabalhos?.find(t => t.id === trabalho.id);
+    const newTrabalhos = exists 
+      ? userData.trabalhos?.map(t => t.id === trabalho.id ? trabalho : t)
+      : [...(userData.trabalhos || []), trabalho];
+    updateUserData({ ...userData, trabalhos: newTrabalhos });
+    toast({ title: exists ? 'Trabalho atualizado!' : 'Trabalho criado!' });
+  };
+
+  const handleDeleteTrabalho = (id: string) => {
+    if (!userData) return;
+    if (confirm('Tem certeza que deseja excluir este trabalho?')) {
+      updateUserData({ ...userData, trabalhos: userData.trabalhos?.filter(t => t.id !== id) });
+      toast({ title: 'Trabalho excluído!' });
+    }
+  };
+
+  // Notas handlers
+  const handleSaveNotas = (notas: any[]) => {
+    if (!userData) return;
+    updateUserData({ ...userData, notionPages: notas });
+  };
+
+  // Kanban handlers
+  const handleSaveKanban = (columns: any[]) => {
+    if (!userData) return;
+    updateUserData({ ...userData, trelloBoards: columns });
+  };
+
   if (!user) {
     return <LoginPage />;
   }
@@ -310,8 +455,8 @@ export default function Management() {
     { id: 'servicos', label: 'Serviços', icon: Briefcase },
     { id: 'trabalhos', label: 'Trabalhos', icon: FileText },
     { id: 'faturamento', label: 'Faturamento', icon: DollarSign },
-    { id: 'notion', label: 'Notas', icon: BookOpen },
-    { id: 'trello', label: 'Kanban', icon: Kanban },
+    { id: 'notas', label: 'Notas', icon: BookOpen },
+    { id: 'kanban', label: 'Kanban', icon: Kanban },
   ];
 
   return (
@@ -354,19 +499,69 @@ export default function Management() {
             servicos={userData.servicos || []} 
           />
         )}
-        {activeTab === 'clientes' && <ClientesTab clientes={userData.clientes || []} />}
-        {activeTab === 'servicos' && <ServicosTab servicos={userData.servicos || []} />}
+        {activeTab === 'clientes' && (
+          <ClientesTab 
+            clientes={userData.clientes || []}
+            onAdd={() => { setEditingCliente(null); setClienteModalOpen(true); }}
+            onEdit={(cliente) => { setEditingCliente(cliente); setClienteModalOpen(true); }}
+            onDelete={handleDeleteCliente}
+          />
+        )}
+        {activeTab === 'servicos' && (
+          <ServicosTab 
+            servicos={userData.servicos || []}
+            onAdd={() => { setEditingServico(null); setServicoModalOpen(true); }}
+            onEdit={(servico) => { setEditingServico(servico); setServicoModalOpen(true); }}
+            onDelete={handleDeleteServico}
+          />
+        )}
         {activeTab === 'trabalhos' && (
           <TrabalhosTab 
             trabalhos={userData.trabalhos || []} 
             clientes={userData.clientes || []}
             servicos={userData.servicos || []}
+            onAdd={() => { setEditingTrabalho(null); setTrabalhoModalOpen(true); }}
+            onEdit={(trabalho) => { setEditingTrabalho(trabalho); setTrabalhoModalOpen(true); }}
+            onDelete={handleDeleteTrabalho}
           />
         )}
         {activeTab === 'faturamento' && <FaturamentoTab trabalhos={userData.trabalhos || []} />}
-        {activeTab === 'notion' && <PlaceholderTab icon={BookOpen} title="Notas" />}
-        {activeTab === 'trello' && <PlaceholderTab icon={Kanban} title="Kanban" />}
+        {activeTab === 'notas' && (
+          <NotasTab 
+            notas={userData.notionPages || []} 
+            onSave={handleSaveNotas}
+          />
+        )}
+        {activeTab === 'kanban' && (
+          <KanbanTab 
+            columns={userData.trelloBoards || []} 
+            onSave={handleSaveKanban}
+          />
+        )}
       </motion.div>
+
+      {/* Modals */}
+      <ClienteModal
+        open={clienteModalOpen}
+        onOpenChange={setClienteModalOpen}
+        cliente={editingCliente}
+        onSave={handleSaveCliente}
+      />
+      <ServicoModal
+        open={servicoModalOpen}
+        onOpenChange={setServicoModalOpen}
+        servico={editingServico}
+        categorias={userData.categorias || []}
+        onSave={handleSaveServico}
+      />
+      <TrabalhoModal
+        open={trabalhoModalOpen}
+        onOpenChange={setTrabalhoModalOpen}
+        trabalho={editingTrabalho}
+        clientes={userData.clientes || []}
+        servicos={userData.servicos || []}
+        onSave={handleSaveTrabalho}
+      />
     </AppLayout>
   );
 }
