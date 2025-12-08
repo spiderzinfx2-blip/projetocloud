@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { notificationSoundService } from '@/services/notificationSoundService';
 
 interface Notification {
   id: string;
@@ -29,7 +30,6 @@ interface NotificationsDropdownProps {
 export function NotificationsDropdown({ username }: NotificationsDropdownProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastCheckRef = useRef<number>(Date.now());
 
   // Load notifications
@@ -54,43 +54,14 @@ export function NotificationsDropdown({ username }: NotificationsDropdownProps) 
       );
       
       if (newUnread.length > 0) {
-        // Play notification sound
-        playNotificationSound();
+        // Play notification sound using global service
+        notificationSoundService.play();
         lastCheckRef.current = Date.now();
       }
     }, 3000); // Check every 3 seconds
 
     return () => clearInterval(interval);
   }, [username]);
-
-  const playNotificationSound = () => {
-    // Get volume from localStorage
-    const savedVolume = localStorage.getItem('notification-volume');
-    const volume = savedVolume ? parseInt(savedVolume) : 50;
-    
-    if (volume === 0) return; // Muted
-    
-    // Create audio context for notification sound
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      const normalizedVolume = volume / 100;
-      gainNode.gain.setValueAtTime(normalizedVolume * 0.5, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-      console.log('Audio not supported');
-    }
-  };
 
   const markAsRead = (id: string) => {
     const updated = notifications.map(n => 
