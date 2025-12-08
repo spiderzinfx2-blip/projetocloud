@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -6,7 +6,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Plus, Minus,
   ChevronLeft, ChevronRight, Calendar, PieChart, BarChart3,
   Repeat, Tag, Trash2, Edit2, Settings, ArrowUpCircle, ArrowDownCircle,
-  Wallet, Target, Filter, X
+  Wallet, Target, Filter, X, Download, FileText, Flag
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,14 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useFinances, Transaction, Category, TransactionType, TransactionRecurrence } from '@/hooks/useFinances';
+import { Progress } from '@/components/ui/progress';
+import { useFinances, Transaction, Category, TransactionType, TransactionRecurrence, FinancialGoal } from '@/hooks/useFinances';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid, Area, AreaChart } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -33,20 +36,29 @@ const RECURRENCE_OPTIONS: { value: TransactionRecurrence; label: string }[] = [
   { value: 'yearly', label: 'Anual' },
 ];
 
+const GOAL_TYPES: { value: FinancialGoal['type']; label: string; description: string }[] = [
+  { value: 'income_target', label: 'Meta de Receita', description: 'Atingir uma receita mínima' },
+  { value: 'expense_limit', label: 'Limite de Gastos', description: 'Não ultrapassar um valor' },
+  { value: 'savings', label: 'Meta de Economia', description: 'Economizar um valor' },
+];
+
 export default function Financas() {
   const { user, login } = useAuth();
   const { 
-    transactions, categories, isLoading,
+    transactions, categories, goals, isLoading,
     addTransaction, updateTransaction, deleteTransaction,
     addCategory, updateCategory, deleteCategory,
-    getMonthlySummary, getYearlySummary, getRecurringTransactions 
+    addGoal, updateGoal, deleteGoal,
+    getMonthlySummary, getYearlySummary, getRecurringTransactions, getMonthlyGoals
   } = useFinances();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -64,11 +76,17 @@ export default function Financas() {
   const [catType, setCatType] = useState<TransactionType>('expense');
   const [catIcon, setCatIcon] = useState('Tag');
 
+  // Goal form state
+  const [goalName, setGoalName] = useState('');
+  const [goalType, setGoalType] = useState<FinancialGoal['type']>('savings');
+  const [goalAmount, setGoalAmount] = useState('');
+
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const monthlySummary = useMemo(() => getMonthlySummary(currentYear, currentMonth), [getMonthlySummary, currentYear, currentMonth]);
   const yearlySummary = useMemo(() => getYearlySummary(currentYear), [getYearlySummary, currentYear]);
   const recurringTransactions = useMemo(() => getRecurringTransactions(), [getRecurringTransactions]);
+  const monthlyGoals = useMemo(() => getMonthlyGoals(currentYear, currentMonth), [getMonthlyGoals, currentYear, currentMonth]);
 
   const filteredTransactions = useMemo(() => {
     return monthlySummary.transactions.filter(t => {
@@ -217,11 +235,190 @@ export default function Financas() {
     }
   };
 
+  // Goal handlers
+  const handleOpenAddGoal = () => {
+    setGoalName('');
+    setGoalType('savings');
+    setGoalAmount('');
+    setEditingGoal(null);
+    setShowGoalModal(true);
+  };
+
+  const handleEditGoal = (goal: FinancialGoal) => {
+    setEditingGoal(goal);
+    setGoalName(goal.name);
+    setGoalType(goal.type);
+    setGoalAmount(goal.targetAmount.toString());
+    setShowGoalModal(true);
+  };
+
+  const handleSaveGoal = () => {
+    if (!goalName.trim() || !goalAmount) {
+      toast({ title: 'Preencha todos os campos', variant: 'destructive' });
+      return;
+    }
+
+    const goalData = {
+      name: goalName.trim(),
+      type: goalType,
+      targetAmount: parseFloat(goalAmount),
+      month: currentMonth,
+      year: currentYear,
+    };
+
+    if (editingGoal) {
+      updateGoal(editingGoal.id, goalData);
+      toast({ title: 'Meta atualizada!' });
+    } else {
+      addGoal(goalData);
+      toast({ title: 'Meta criada!' });
+    }
+
+    setShowGoalModal(false);
+  };
+
+  const handleDeleteGoal = (id: string) => {
+    if (confirm('Excluir esta meta?')) {
+      deleteGoal(id);
+      toast({ title: 'Meta excluída!' });
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  // PDF Export
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
+    doc.text('Relatório Financeiro', pageWidth / 2, 20, { align: 'center' });
+    
+    // Subtitle
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${MONTHS[currentMonth]} ${currentYear}`, pageWidth / 2, 28, { align: 'center' });
+    
+    // Summary section
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Resumo do Mês', 14, 45);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(34, 197, 94);
+    doc.text(`Receitas: ${formatCurrency(monthlySummary.income)}`, 14, 55);
+    
+    doc.setTextColor(239, 68, 68);
+    doc.text(`Despesas: ${formatCurrency(monthlySummary.expense)}`, 14, 62);
+    
+    doc.setTextColor(monthlySummary.balance >= 0 ? 34 : 239, monthlySummary.balance >= 0 ? 197 : 68, monthlySummary.balance >= 0 ? 94 : 68);
+    doc.text(`Saldo: ${formatCurrency(monthlySummary.balance)}`, 14, 69);
+
+    // Goals section
+    if (monthlyGoals.length > 0) {
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Metas do Mês', 14, 85);
+      
+      const goalsData = monthlyGoals.map(goal => [
+        goal.name,
+        GOAL_TYPES.find(t => t.value === goal.type)?.label || goal.type,
+        formatCurrency(goal.targetAmount),
+        formatCurrency(goal.currentAmount),
+        `${goal.progress.toFixed(0)}%`,
+        goal.isCompleted ? 'Concluída' : goal.isOverBudget ? 'Excedido' : 'Em andamento'
+      ]);
+
+      autoTable(doc, {
+        startY: 90,
+        head: [['Meta', 'Tipo', 'Alvo', 'Atual', 'Progresso', 'Status']],
+        body: goalsData,
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+    }
+
+    // Expenses by category
+    const lastTableY = (doc as any).lastAutoTable?.finalY || 95;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Despesas por Categoria', 14, lastTableY + 15);
+
+    const categoryData = pieChartData.map(item => [
+      item.name,
+      formatCurrency(item.value),
+      `${((item.value / monthlySummary.expense) * 100).toFixed(1)}%`
+    ]);
+
+    autoTable(doc, {
+      startY: lastTableY + 20,
+      head: [['Categoria', 'Valor', '% do Total']],
+      body: categoryData,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    // Transactions list
+    const lastCatTableY = (doc as any).lastAutoTable?.finalY || 120;
+    
+    if (lastCatTableY > 200) {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Transações do Mês', 14, 20);
+    } else {
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Transações do Mês', 14, lastCatTableY + 15);
+    }
+
+    const transactionsData = filteredTransactions.slice(0, 30).map(t => {
+      const category = categories.find(c => c.id === t.category);
+      return [
+        format(new Date(t.date), 'dd/MM/yyyy'),
+        t.description,
+        category?.name || '-',
+        t.type === 'income' ? 'Receita' : 'Despesa',
+        formatCurrency(t.amount)
+      ];
+    });
+
+    autoTable(doc, {
+      startY: lastCatTableY > 200 ? 25 : lastCatTableY + 20,
+      head: [['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor']],
+      body: transactionsData,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable?.finalY || 280;
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, pageWidth / 2, finalY + 10, { align: 'center' });
+
+    doc.save(`relatorio-financeiro-${MONTHS[currentMonth].toLowerCase()}-${currentYear}.pdf`);
+    toast({ title: 'PDF exportado com sucesso!' });
+  };
+
+  // Custom tooltip for charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+          <p className="text-foreground font-medium mb-1">{payload[0]?.name || label}</p>
+          <p className="text-foreground text-sm">{formatCurrency(payload[0]?.value)}</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   if (!user) {
@@ -250,7 +447,15 @@ export default function Financas() {
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão Financeira</h1>
             <p className="text-muted-foreground">Controle suas receitas e despesas</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleExportPDF}>
+              <Download className="w-4 h-4 mr-2" />
+              Exportar PDF
+            </Button>
+            <Button variant="outline" onClick={handleOpenAddGoal}>
+              <Target className="w-4 h-4 mr-2" />
+              Metas
+            </Button>
             <Button variant="outline" onClick={handleOpenAddCategory}>
               <Tag className="w-4 h-4 mr-2" />
               Categorias
@@ -329,6 +534,96 @@ export default function Financas() {
           </motion.div>
         </div>
 
+        {/* Goals Section */}
+        {monthlyGoals.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card rounded-xl border border-border p-5"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Metas do Mês
+              </h3>
+              <Button size="sm" variant="outline" onClick={handleOpenAddGoal}>
+                <Plus className="w-4 h-4 mr-1" />
+                Nova Meta
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {monthlyGoals.map((goal) => (
+                <motion.div
+                  key={goal.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={cn(
+                    "p-4 rounded-lg border group relative",
+                    goal.isCompleted 
+                      ? "border-success/30 bg-success/5" 
+                      : goal.isOverBudget 
+                        ? "border-destructive/30 bg-destructive/5"
+                        : "border-border bg-muted/30"
+                  )}
+                >
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditGoal(goal)}>
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteGoal(goal.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      goal.isCompleted ? "bg-success/20" : goal.isOverBudget ? "bg-destructive/20" : "bg-primary/10"
+                    )}>
+                      <Flag className={cn(
+                        "w-4 h-4",
+                        goal.isCompleted ? "text-success" : goal.isOverBudget ? "text-destructive" : "text-primary"
+                      )} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{goal.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {GOAL_TYPES.find(t => t.value === goal.type)?.label}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">
+                        {formatCurrency(goal.currentAmount)}
+                      </span>
+                      <span className="text-foreground font-medium">
+                        {formatCurrency(goal.targetAmount)}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={goal.progress} 
+                      className={cn(
+                        "h-2",
+                        goal.isCompleted 
+                          ? "[&>div]:bg-success" 
+                          : goal.isOverBudget 
+                            ? "[&>div]:bg-destructive"
+                            : "[&>div]:bg-primary"
+                      )}
+                    />
+                    <p className={cn(
+                      "text-xs mt-1 text-right font-medium",
+                      goal.isCompleted ? "text-success" : goal.isOverBudget ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                      {goal.isCompleted ? 'Concluída!' : goal.isOverBudget ? 'Excedido!' : `${goal.progress.toFixed(0)}%`}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid grid-cols-4 w-full max-w-xl mx-auto mb-6">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
@@ -367,14 +662,7 @@ export default function Financas() {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          formatter={(value: number) => formatCurrency(value)}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
+                        <Tooltip content={<CustomTooltip />} />
                       </RechartsPie>
                     </ResponsiveContainer>
                   </div>
@@ -410,14 +698,7 @@ export default function Financas() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                       <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                      <Tooltip 
-                        formatter={(value: number) => formatCurrency(value)}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
+                      <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="Receita" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Despesa" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -812,7 +1093,9 @@ export default function Financas() {
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Editar' : 'Nova'} Categoria</DialogTitle>
+            <DialogTitle>
+              {editingCategory ? 'Editar' : 'Nova'} Categoria
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -820,7 +1103,7 @@ export default function Financas() {
               <Input
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
-                placeholder="Nome da categoria"
+                placeholder="Ex: Alimentação"
               />
             </div>
 
@@ -839,12 +1122,12 @@ export default function Financas() {
 
             <div className="space-y-2">
               <Label>Cor</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input
                   type="color"
                   value={catColor}
                   onChange={(e) => setCatColor(e.target.value)}
-                  className="w-14 h-10 p-1"
+                  className="w-12 h-10 p-1 cursor-pointer"
                 />
                 <Input
                   value={catColor}
@@ -858,6 +1141,62 @@ export default function Financas() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCategoryModal(false)}>Cancelar</Button>
             <Button onClick={handleSaveCategory}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Goal Modal */}
+      <Dialog open={showGoalModal} onOpenChange={setShowGoalModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingGoal ? 'Editar' : 'Nova'} Meta - {MONTHS[currentMonth]} {currentYear}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome da Meta</Label>
+              <Input
+                value={goalName}
+                onChange={(e) => setGoalName(e.target.value)}
+                placeholder="Ex: Economizar para viagem"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Meta</Label>
+              <Select value={goalType} onValueChange={(v) => setGoalType(v as FinancialGoal['type'])}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GOAL_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div>
+                        <p className="font-medium">{type.label}</p>
+                        <p className="text-xs text-muted-foreground">{type.description}</p>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor Alvo (R$)</Label>
+              <Input
+                type="number"
+                value={goalAmount}
+                onChange={(e) => setGoalAmount(e.target.value)}
+                placeholder="0,00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGoalModal(false)}>Cancelar</Button>
+            <Button onClick={handleSaveGoal}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

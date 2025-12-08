@@ -25,6 +25,17 @@ export interface Transaction {
   createdAt: string;
 }
 
+export interface FinancialGoal {
+  id: string;
+  name: string;
+  type: 'savings' | 'expense_limit' | 'income_target';
+  targetAmount: number;
+  currentAmount: number;
+  month: number;
+  year: number;
+  createdAt: string;
+}
+
 const DEFAULT_CATEGORIES: Category[] = [
   // Income
   { id: 'salary', name: 'Salário', color: '#22c55e', type: 'income', icon: 'Briefcase' },
@@ -49,12 +60,14 @@ const DEFAULT_CATEGORIES: Category[] = [
 
 const FINANCES_KEY = 'finances_data';
 const CATEGORIES_KEY = 'finances_categories';
+const GOALS_KEY = 'finances_goals';
 
 export function useFinances() {
   const { user } = useAuth();
   const { activeTeamId, getActiveTeam } = useTeam();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const getStorageKey = useCallback(() => {
@@ -71,10 +84,18 @@ export function useFinances() {
     return user ? `${CATEGORIES_KEY}_${user.id}` : CATEGORIES_KEY;
   }, [user, activeTeamId]);
 
+  const getGoalsKey = useCallback(() => {
+    if (activeTeamId) {
+      return `${GOALS_KEY}_team_${activeTeamId}`;
+    }
+    return user ? `${GOALS_KEY}_${user.id}` : GOALS_KEY;
+  }, [user, activeTeamId]);
+
   // Load data
   useEffect(() => {
     const storedTransactions = localStorage.getItem(getStorageKey());
     const storedCategories = localStorage.getItem(getCategoriesKey());
+    const storedGoals = localStorage.getItem(getGoalsKey());
 
     if (storedTransactions) {
       setTransactions(JSON.parse(storedTransactions));
@@ -88,8 +109,14 @@ export function useFinances() {
       setCategories(DEFAULT_CATEGORIES);
     }
 
+    if (storedGoals) {
+      setGoals(JSON.parse(storedGoals));
+    } else {
+      setGoals([]);
+    }
+
     setIsLoading(false);
-  }, [getStorageKey, getCategoriesKey]);
+  }, [getStorageKey, getCategoriesKey, getGoalsKey]);
 
   // Save transactions
   const saveTransactions = useCallback((data: Transaction[]) => {
@@ -102,6 +129,12 @@ export function useFinances() {
     localStorage.setItem(getCategoriesKey(), JSON.stringify(data));
     setCategories(data);
   }, [getCategoriesKey]);
+
+  // Save goals
+  const saveGoals = useCallback((data: FinancialGoal[]) => {
+    localStorage.setItem(getGoalsKey(), JSON.stringify(data));
+    setGoals(data);
+  }, [getGoalsKey]);
 
   // Add transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
@@ -205,9 +238,71 @@ export function useFinances() {
     return transactions.filter(t => t.recurrence !== 'once');
   }, [transactions]);
 
+  // Add goal
+  const addGoal = useCallback((goal: Omit<FinancialGoal, 'id' | 'createdAt' | 'currentAmount'>) => {
+    const newGoal: FinancialGoal = {
+      ...goal,
+      id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      currentAmount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    saveGoals([...goals, newGoal]);
+    return newGoal;
+  }, [goals, saveGoals]);
+
+  // Update goal
+  const updateGoal = useCallback((id: string, updates: Partial<FinancialGoal>) => {
+    const updated = goals.map(g => 
+      g.id === id ? { ...g, ...updates } : g
+    );
+    saveGoals(updated);
+  }, [goals, saveGoals]);
+
+  // Delete goal
+  const deleteGoal = useCallback((id: string) => {
+    saveGoals(goals.filter(g => g.id !== id));
+  }, [goals, saveGoals]);
+
+  // Get monthly goals with progress
+  const getMonthlyGoals = useCallback((year: number, month: number) => {
+    const monthGoals = goals.filter(g => g.year === year && g.month === month);
+    const summary = getMonthlySummary(year, month);
+    
+    return monthGoals.map(goal => {
+      let currentAmount = 0;
+      let progress = 0;
+      
+      switch (goal.type) {
+        case 'income_target':
+          currentAmount = summary.income;
+          progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
+          break;
+        case 'expense_limit':
+          currentAmount = summary.expense;
+          progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
+          break;
+        case 'savings':
+          currentAmount = summary.balance;
+          progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
+          break;
+      }
+      
+      return {
+        ...goal,
+        currentAmount,
+        progress: Math.min(progress, 100),
+        isCompleted: goal.type === 'expense_limit' 
+          ? currentAmount <= goal.targetAmount 
+          : currentAmount >= goal.targetAmount,
+        isOverBudget: goal.type === 'expense_limit' && currentAmount > goal.targetAmount,
+      };
+    });
+  }, [goals, getMonthlySummary]);
+
   return {
     transactions,
     categories,
+    goals,
     isLoading,
     addTransaction,
     updateTransaction,
@@ -215,8 +310,12 @@ export function useFinances() {
     addCategory,
     updateCategory,
     deleteCategory,
+    addGoal,
+    updateGoal,
+    deleteGoal,
     getMonthlySummary,
     getYearlySummary,
     getRecurringTransactions,
+    getMonthlyGoals,
   };
 }
