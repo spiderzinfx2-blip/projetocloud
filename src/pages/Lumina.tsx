@@ -198,6 +198,8 @@ export default function Lumina() {
         rating: 4.8,
         specialties: profile.specialties || ['Filmes', 'Séries'],
         socialLinks: profile.socialLinks || {},
+        contactMethods: profile.contactMethods || [],
+        paymentInfo: profile.paymentInfo || '',
         moviePriceShort: profile.moviePriceShort || 0,
         moviePriceLong: profile.moviePriceLong || 0,
         episodePrice: profile.episodePrice || 0,
