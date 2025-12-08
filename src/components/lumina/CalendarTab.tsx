@@ -316,7 +316,7 @@ export function CalendarTab() {
           <ChevronLeft className="w-5 h-5" />
         </Button>
         
-        <h3 className="text-lg font-semibold capitalize">
+        <h3 className="text-lg font-bold capitalize tracking-tight">
           {viewMode === 'weekly' 
             ? `Semana de ${format(startOfWeek(currentDate, { weekStartsOn: 0 }), 'd MMM', { locale: ptBR })}`
             : format(currentDate, 'MMMM yyyy', { locale: ptBR })
@@ -333,8 +333,7 @@ export function CalendarTab() {
         ref={calendarRef}
         className="bg-card rounded-xl border border-border overflow-hidden"
         style={{ 
-          backgroundColor: design.backgroundColor,
-          fontFamily: design.fontFamily
+          backgroundColor: design.backgroundColor
         }}
       >
         {/* Week Days Header */}
@@ -343,7 +342,7 @@ export function CalendarTab() {
             <div 
               key={day} 
               className={cn(
-                "p-3 text-center text-sm font-semibold text-muted-foreground",
+                "p-3 text-center text-sm font-bold text-muted-foreground tracking-wide",
                 !design.showWeekends && (i === 0 || i === 6) && "opacity-50"
               )}
             >
@@ -375,8 +374,8 @@ export function CalendarTab() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={cn(
-                    "text-sm font-medium",
-                    isToday(day) && "text-primary font-bold"
+                    "text-sm font-bold tracking-tight",
+                    isToday(day) && "text-primary"
                   )}>
                     {format(day, 'd')}
                   </span>
@@ -385,19 +384,43 @@ export function CalendarTab() {
                 <div className="space-y-1">
                   {dayEvents.slice(0, viewMode === 'weekly' ? 5 : 3).map((event) => {
                     const typeInfo = eventTypes.find(t => t.value === event.type);
+                    
+                    // If event has content poster, show it prominently
+                    if (event.contentPoster) {
+                      return (
+                        <button
+                          key={event.id}
+                          onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
+                          className="w-full text-left rounded overflow-hidden group"
+                        >
+                          <div className="relative">
+                            <img 
+                              src={tmdbService.getImageUrl(event.contentPoster, 'w342')}
+                              alt={event.contentTitle}
+                              className="w-full h-16 object-cover rounded"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-1">
+                              <p className="text-[10px] text-white font-medium truncate leading-tight">
+                                {event.time && <span className="opacity-80">{event.time} </span>}
+                                {event.title}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+                    
                     return (
                       <button
                         key={event.id}
                         onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
                         className={cn(
-                          "w-full text-left text-xs p-1 rounded overflow-hidden",
-                          event.contentPoster ? "bg-cover bg-center relative" : typeInfo?.color || 'bg-primary'
+                          "w-full text-left text-xs p-1 rounded",
+                          typeInfo?.color || 'bg-primary'
                         )}
-                        style={event.contentPoster ? {
-                          backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${tmdbService.getImageUrl(event.contentPoster, 'w185')})`
-                        } : undefined}
                       >
-                        <span className="text-white truncate block">
+                        <span className="text-white truncate block font-medium">
                           {event.time && <span className="opacity-80">{event.time} </span>}
                           {event.title}
                         </span>
@@ -405,7 +428,7 @@ export function CalendarTab() {
                     );
                   })}
                   {dayEvents.length > (viewMode === 'weekly' ? 5 : 3) && (
-                    <p className="text-xs text-muted-foreground text-center">
+                    <p className="text-xs text-muted-foreground text-center font-medium">
                       +{dayEvents.length - (viewMode === 'weekly' ? 5 : 3)} mais
                     </p>
                   )}
@@ -418,8 +441,8 @@ export function CalendarTab() {
 
       {/* Upcoming Events */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h3 className="font-semibold text-foreground mb-4">Próximos Eventos</h3>
-        <div className="space-y-2">
+        <h3 className="font-bold text-foreground mb-4 tracking-tight">Próximos Eventos</h3>
+        <div className="space-y-3">
           {events
             .filter(e => new Date(e.date) >= new Date())
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -429,25 +452,28 @@ export function CalendarTab() {
               return (
                 <div 
                   key={event.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
+                  className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
                 >
                   {event.contentPoster ? (
                     <img 
-                      src={tmdbService.getImageUrl(event.contentPoster, 'w92')}
+                      src={tmdbService.getImageUrl(event.contentPoster, 'w185')}
                       alt={event.contentTitle}
-                      className="w-10 h-14 object-cover rounded"
+                      className="w-16 h-24 object-cover rounded-lg shadow-md"
                     />
                   ) : (
-                    <div className={cn("w-3 h-3 rounded-full", typeInfo?.color)} />
+                    <div className={cn("w-4 h-4 rounded-full flex-shrink-0", typeInfo?.color)} />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-bold text-sm truncate tracking-tight">{event.title}</p>
+                    {event.contentTitle && (
+                      <p className="text-xs text-muted-foreground truncate">{event.contentTitle}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR })}
                       {event.time && ` às ${event.time}`}
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs font-medium">
                     {typeInfo?.label}
                   </Badge>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -471,12 +497,12 @@ export function CalendarTab() {
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingEvent ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
+            <DialogTitle className="font-bold tracking-tight">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Título *</Label>
+              <Label className="font-medium">Título *</Label>
               <Input
                 value={eventForm.title}
                 onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
@@ -486,7 +512,7 @@ export function CalendarTab() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Data *</Label>
+                <Label className="font-medium">Data *</Label>
                 <Input
                   type="date"
                   value={eventForm.date}
@@ -494,7 +520,7 @@ export function CalendarTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Hora</Label>
+                <Label className="font-medium">Hora</Label>
                 <Input
                   type="time"
                   value={eventForm.time}
@@ -504,7 +530,7 @@ export function CalendarTab() {
             </div>
             
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label className="font-medium">Tipo</Label>
               <Select value={eventForm.type} onValueChange={(v) => setEventForm({ ...eventForm, type: v as CalendarEvent['type'] })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -524,23 +550,26 @@ export function CalendarTab() {
 
             {/* TMDB Content Selection */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2 font-medium">
                 <Film className="w-4 h-4" />
                 Vincular Conteúdo (Filme/Série)
               </Label>
               
               {selectedContent ? (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                <div className="flex gap-4 p-4 rounded-lg bg-muted/50 border border-border">
                   <img 
-                    src={tmdbService.getImageUrl(selectedContent.poster, 'w92')}
+                    src={tmdbService.getImageUrl(selectedContent.poster, 'w185')}
                     alt={selectedContent.title}
-                    className="w-12 h-16 object-cover rounded"
+                    className="w-20 h-28 object-cover rounded-lg shadow-md"
                   />
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{selectedContent.title}</p>
+                    <p className="font-bold text-sm">{selectedContent.title}</p>
                     <Badge variant="outline" className="text-xs mt-1">
                       {selectedContent.type === 'movie' ? 'Filme' : 'Série'}
                     </Badge>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      A capa será exibida no calendário
+                    </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={handleClearContent}>
                     <X className="w-4 h-4" />
@@ -559,7 +588,7 @@ export function CalendarTab() {
             </div>
             
             <div className="space-y-2">
-              <Label>Descrição</Label>
+              <Label className="font-medium">Descrição</Label>
               <Textarea
                 value={eventForm.description}
                 onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
@@ -595,7 +624,7 @@ export function CalendarTab() {
       <Dialog open={showContentSearch} onOpenChange={setShowContentSearch}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Buscar Conteúdo</DialogTitle>
+            <DialogTitle className="font-bold tracking-tight">Buscar Conteúdo</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -617,16 +646,16 @@ export function CalendarTab() {
                   <button
                     key={item.id}
                     onClick={() => handleSelectContent(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    className="w-full flex items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left"
                   >
                     <img
-                      src={tmdbService.getImageUrl(item.poster_path, 'w92')}
+                      src={tmdbService.getImageUrl(item.poster_path, 'w154')}
                       alt={item.title || item.name}
-                      className="w-10 h-14 object-cover rounded"
+                      className="w-14 h-20 object-cover rounded-lg shadow-sm"
                     />
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{item.title || item.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <p className="font-bold text-sm">{item.title || item.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                         <Badge variant="outline" className="text-xs">
                           {item.media_type === 'movie' ? 'Filme' : 'Série'}
                         </Badge>
@@ -648,12 +677,12 @@ export function CalendarTab() {
       <Dialog open={showDesignModal} onOpenChange={setShowDesignModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Personalizar Design</DialogTitle>
+            <DialogTitle className="font-bold tracking-tight">Personalizar Design</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Cor Principal</Label>
+              <Label className="font-medium">Cor Principal</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -670,7 +699,7 @@ export function CalendarTab() {
             </div>
             
             <div className="space-y-2">
-              <Label>Cor de Fundo</Label>
+              <Label className="font-medium">Cor de Fundo</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -687,7 +716,7 @@ export function CalendarTab() {
             </div>
             
             <div className="space-y-2">
-              <Label>Cor de Destaque</Label>
+              <Label className="font-medium">Cor de Destaque</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -704,7 +733,7 @@ export function CalendarTab() {
             </div>
             
             <div className="flex items-center justify-between">
-              <Label>Mostrar Finais de Semana</Label>
+              <Label className="font-medium">Mostrar Finais de Semana</Label>
               <button
                 onClick={() => setDesign({ ...design, showWeekends: !design.showWeekends })}
                 className={cn(
