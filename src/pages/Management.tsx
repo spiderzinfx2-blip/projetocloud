@@ -524,6 +524,32 @@ export default function Management() {
         servicos={userData.servicos || []}
         onSave={handleSaveTrabalho}
       />
+      <ClienteDetails
+        open={clienteDetailsOpen}
+        onOpenChange={setClienteDetailsOpen}
+        cliente={viewingCliente}
+        trabalhos={userData.trabalhos || []}
+        servicos={userData.servicos || []}
+        onEdit={(cliente) => { 
+          setClienteDetailsOpen(false);
+          setEditingCliente(cliente); 
+          setClienteModalOpen(true); 
+        }}
+        onViewTrabalho={(trabalho) => {
+          setClienteDetailsOpen(false);
+          setViewingTrabalho(trabalho);
+          setTrabalhoDetailsOpen(true);
+        }}
+      />
+      <TrabalhoDetails
+        open={trabalhoDetailsOpen}
+        onOpenChange={setTrabalhoDetailsOpen}
+        trabalho={viewingTrabalho}
+        cliente={userData.clientes?.find(c => c.id === viewingTrabalho?.clienteId) || null}
+        servicos={userData.servicos || []}
+        onSave={handleSaveTrabalho}
+        onDelete={handleDeleteTrabalho}
+      />
     </AppLayout>
   );
 }

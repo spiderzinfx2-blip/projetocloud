@@ -10,6 +10,8 @@ import {
   Youtube, Instagram, Twitter, ExternalLink, DollarSign, User
 } from 'lucide-react';
 import { profilesApiService, UserProfile } from '@/services/profilesApiService';
+import { SponsorModal } from '@/components/patrocinio/SponsorModal';
+import { ContactModal } from '@/components/patrocinio/ContactModal';
 import { cn } from '@/lib/utils';
 
 // TikTok icon component
@@ -20,7 +22,17 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 );
 
 // Creator Public Profile Component
-const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBack: () => void }) => (
+const CreatorPublicProfile = ({ 
+  profile, 
+  onBack, 
+  onSponsor, 
+  onContact 
+}: { 
+  profile: UserProfile; 
+  onBack: () => void;
+  onSponsor: () => void;
+  onContact: () => void;
+}) => (
   <div className="space-y-6">
     {/* Back Button */}
     <Button variant="ghost" onClick={onBack} className="gap-2">
@@ -60,13 +72,13 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
             <p className="text-muted-foreground">@{profile.username}</p>
           </div>
           
-          {/* Action Button */}
+          {/* Action Buttons */}
           <div className="flex gap-3 pb-2">
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={onSponsor}>
               <Heart className="w-4 h-4" />
               Patrocinar
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={onContact}>
               <MessageCircle className="w-4 h-4" />
               Contato
             </Button>
@@ -83,21 +95,21 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           <div className="text-center p-4 rounded-xl bg-muted/50">
-            <p className="text-2xl font-bold text-foreground">{profile.followers?.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-foreground">{profile.followers?.toLocaleString() || 0}</p>
             <p className="text-sm text-muted-foreground">Seguidores</p>
           </div>
           <div className="text-center p-4 rounded-xl bg-muted/50">
-            <p className="text-2xl font-bold text-foreground">{profile.totalViews?.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-foreground">{profile.totalViews?.toLocaleString() || 0}</p>
             <p className="text-sm text-muted-foreground">Visualizações</p>
           </div>
           <div className="text-center p-4 rounded-xl bg-muted/50">
-            <p className="text-2xl font-bold text-foreground">{profile.sponsoredContent}</p>
+            <p className="text-2xl font-bold text-foreground">{profile.sponsoredContent || 0}</p>
             <p className="text-sm text-muted-foreground">Patrocínios</p>
           </div>
           <div className="text-center p-4 rounded-xl bg-muted/50">
             <div className="flex items-center justify-center gap-1 text-2xl font-bold text-foreground">
               <Star className="w-5 h-5 text-warning fill-warning" />
-              {profile.rating?.toFixed(1)}
+              {profile.rating?.toFixed(1) || '0.0'}
             </div>
             <p className="text-sm text-muted-foreground">Avaliação</p>
           </div>
@@ -183,7 +195,7 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
         <div className="p-5 rounded-xl bg-muted/50 border border-border hover:border-primary/30 transition-colors">
           <p className="text-sm text-muted-foreground mb-2">Filme Curto</p>
           <p className="text-2xl font-bold text-foreground">
-            R$ {profile.moviePriceShort?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(profile.moviePriceShort || 0)?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Até 90 minutos</p>
         </div>
@@ -191,7 +203,7 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
         <div className="p-5 rounded-xl bg-muted/50 border border-border hover:border-primary/30 transition-colors">
           <p className="text-sm text-muted-foreground mb-2">Filme Longo</p>
           <p className="text-2xl font-bold text-foreground">
-            R$ {profile.moviePriceLong?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(profile.moviePriceLong || 0)?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Acima de 90 minutos</p>
         </div>
@@ -199,7 +211,7 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
         <div className="p-5 rounded-xl bg-muted/50 border border-border hover:border-primary/30 transition-colors">
           <p className="text-sm text-muted-foreground mb-2">Episódio de Série</p>
           <p className="text-2xl font-bold text-foreground">
-            R$ {profile.episodePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(profile.episodePrice || 0)?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Por episódio</p>
         </div>
@@ -207,7 +219,7 @@ const CreatorPublicProfile = ({ profile, onBack }: { profile: UserProfile; onBac
         <div className="p-5 rounded-xl bg-primary/5 border border-primary/20 hover:border-primary/40 transition-colors">
           <p className="text-sm text-primary mb-2">Prioridade</p>
           <p className="text-2xl font-bold text-primary">
-            +R$ {profile.priorityPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            +R$ {(profile.priorityPrice || 0)?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Adicional por conteúdo</p>
         </div>
@@ -225,6 +237,10 @@ export default function Patrocinio() {
   const [isSearching, setIsSearching] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [viewingProfile, setViewingProfile] = useState(false);
+  
+  // Modal states
+  const [sponsorModalOpen, setSponsorModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
   useEffect(() => {
     if (username) {
@@ -273,11 +289,44 @@ export default function Patrocinio() {
     navigate('/patrocinio');
   };
 
+  const handleSponsor = (userProfile?: UserProfile) => {
+    const targetProfile = userProfile || profile;
+    if (targetProfile) {
+      setProfile(targetProfile);
+      setSponsorModalOpen(true);
+    }
+  };
+
+  const handleContact = (userProfile?: UserProfile) => {
+    const targetProfile = userProfile || profile;
+    if (targetProfile) {
+      setProfile(targetProfile);
+      setContactModalOpen(true);
+    }
+  };
+
   // If viewing a specific profile
   if (viewingProfile && profile) {
     return (
       <AppLayout title={profile.name} subtitle={`@${profile.username}`}>
-        <CreatorPublicProfile profile={profile} onBack={handleBackToSearch} />
+        <CreatorPublicProfile 
+          profile={profile} 
+          onBack={handleBackToSearch}
+          onSponsor={() => handleSponsor()}
+          onContact={() => handleContact()}
+        />
+        
+        {/* Modals */}
+        <SponsorModal
+          open={sponsorModalOpen}
+          onOpenChange={setSponsorModalOpen}
+          profile={profile}
+        />
+        <ContactModal
+          open={contactModalOpen}
+          onOpenChange={setContactModalOpen}
+          profile={profile}
+        />
       </AppLayout>
     );
   }
@@ -342,12 +391,12 @@ export default function Patrocinio() {
                       </div>
                       <div className="flex items-center gap-1 text-sm">
                         <Star className="w-4 h-4 text-warning fill-warning" />
-                        <span className="font-medium text-foreground">{user.rating?.toFixed(1)}</span>
+                        <span className="font-medium text-foreground">{user.rating?.toFixed(1) || '0.0'}</span>
                       </div>
                     </div>
                     
                     <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {user.bio}
+                      {user.bio || 'Criador de conteúdo'}
                     </p>
                     
                     <div className="flex flex-wrap gap-1 mb-4">
@@ -368,7 +417,11 @@ export default function Patrocinio() {
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Ver Perfil
                       </Button>
-                      <Button size="sm" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleSponsor(user)}
+                      >
                         <Heart className="w-4 h-4 mr-2" />
                         Patrocinar
                       </Button>
@@ -393,6 +446,22 @@ export default function Patrocinio() {
           </div>
         )}
       </div>
+      
+      {/* Modal for sponsoring from search results */}
+      {profile && (
+        <>
+          <SponsorModal
+            open={sponsorModalOpen}
+            onOpenChange={setSponsorModalOpen}
+            profile={profile}
+          />
+          <ContactModal
+            open={contactModalOpen}
+            onOpenChange={setContactModalOpen}
+            profile={profile}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }
