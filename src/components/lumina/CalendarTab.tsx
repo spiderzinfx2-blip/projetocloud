@@ -383,30 +383,28 @@ export function CalendarTab() {
                 </div>
                 
                 <div className="space-y-2">
-                  {dayEvents.slice(0, viewMode === 'weekly' ? 3 : 2).map((event) => {
+                  {dayEvents.slice(0, viewMode === 'weekly' ? 2 : 1).map((event) => {
                     const typeInfo = eventTypes.find(t => t.value === event.type);
                     
-                    // If event has content poster, show it prominently in a square
+                    // If event has content poster, show it prominently
                     if (event.contentPoster) {
                       return (
                         <button
                           key={event.id}
                           onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
-                          className="w-full text-left rounded-lg overflow-hidden group hover:ring-2 hover:ring-primary/50 transition-all"
+                          className="w-full text-left rounded-lg overflow-hidden group hover:ring-2 hover:ring-primary/50 transition-all flex flex-col items-center"
                         >
-                          <div className="relative aspect-square w-full max-w-[120px] mx-auto">
+                          <div className="w-full aspect-[2/3] max-w-full">
                             <img 
                               src={tmdbService.getImageUrl(event.contentPoster, 'w342')}
                               alt={event.contentTitle}
-                              className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                              className="w-full h-full object-cover rounded-lg"
                             />
                           </div>
-                          <div className="mt-1 px-1">
-                            <p className="text-xs text-foreground font-semibold truncate leading-tight">
-                              {event.time && <span className="text-muted-foreground">{event.time} </span>}
-                              {event.title}
-                            </p>
-                          </div>
+                          <p className="text-[10px] text-foreground font-medium text-center mt-1 leading-tight w-full truncate px-1">
+                            {event.time && <span className="text-muted-foreground">{event.time} </span>}
+                            {event.title}
+                          </p>
                         </button>
                       );
                     }
@@ -427,9 +425,9 @@ export function CalendarTab() {
                       </button>
                     );
                   })}
-                  {dayEvents.length > (viewMode === 'weekly' ? 5 : 3) && (
+                  {dayEvents.length > (viewMode === 'weekly' ? 2 : 1) && (
                     <p className="text-xs text-muted-foreground text-center font-medium">
-                      +{dayEvents.length - (viewMode === 'weekly' ? 5 : 3)} mais
+                      +{dayEvents.length - (viewMode === 'weekly' ? 2 : 1)} mais
                     </p>
                   )}
                 </div>
