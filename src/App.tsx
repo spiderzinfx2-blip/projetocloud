@@ -14,6 +14,7 @@ import Management from "./pages/Management";
 import Lumina from "./pages/Lumina";
 import Patrocinio from "./pages/Patrocinio";
 import Settings from "./pages/Settings";
+import Financas from "./pages/Financas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="/patrocinio" element={<Patrocinio />} />
               <Route path="/patrocinio/:username" element={<Patrocinio />} />
               <Route path="/configuracoes" element={<Settings />} />
+              <Route path="/financas" element={<Financas />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

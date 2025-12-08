@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, UserPlus, Trash2, Settings, Check, X, 
-  Mail, Crown, Share2, Save, PlusCircle
+  Mail, Crown, Share2, Save, PlusCircle, Copy, Key,
+  Shield, ShieldCheck, Eye, Edit, Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useTeam } from '@/hooks/useTeam';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useTeam, TabPermission, MemberPermissions } from '@/hooks/useTeam';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +20,14 @@ const AVAILABLE_TABS = [
   { id: 'gerenciamento', label: 'Gerenciamento', description: 'Clientes, serviços e trabalhos' },
   { id: 'patrocinio', label: 'Patrocínio', description: 'Página de patrocínio pública' },
   { id: 'dashboard', label: 'Dashboard', description: 'Visão geral e estatísticas' },
+  { id: 'financas', label: 'Finanças', description: 'Gestão financeira completa' },
 ];
+
+const PERMISSION_LABELS: Record<TabPermission, { label: string; icon: React.ReactNode; color: string }> = {
+  view: { label: 'Visualizar', icon: <Eye className="w-3 h-3" />, color: 'text-muted-foreground' },
+  edit: { label: 'Editar', icon: <Edit className="w-3 h-3" />, color: 'text-info' },
+  full: { label: 'Completo', icon: <Zap className="w-3 h-3" />, color: 'text-success' },
+};
 
 export function TeamManagement() {
   const { 
@@ -27,7 +37,11 @@ export function TeamManagement() {
     removeMember, 
     updateSharedTabs,
     updateTeamName,
-    deleteTeam 
+    deleteTeam,
+    createInviteCode,
+    deleteInviteCode,
+    updateMemberPermissions,
+    updateMemberRole
   } = useTeam();
   
   const [newTeamName, setNewTeamName] = useState('');
@@ -36,6 +50,9 @@ export function TeamManagement() {
   const [editingName, setEditingName] = useState(false);
   const [teamNameEdit, setTeamNameEdit] = useState('');
   const [selectedTabs, setSelectedTabs] = useState<string[]>([]);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<any>(null);
+  const [memberPermissions, setMemberPermissions] = useState<MemberPermissions | null>(null);
 
   // Initialize selected tabs when team loads
   React.useEffect(() => {
@@ -123,6 +140,42 @@ export function TeamManagement() {
     }
   };
 
+  const handleGenerateCode = () => {
+    const code = createInviteCode();
+    if (code) {
+      toast({ title: `Código gerado: ${code}`, description: 'Válido por 7 dias' });
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast({ title: 'Código copiado!' });
+  };
+
+  const handleDeleteCode = (code: string) => {
+    deleteInviteCode(code);
+    toast({ title: 'Código excluído!' });
+  };
+
+  const handleOpenPermissions = (member: any) => {
+    setEditingMember(member);
+    setMemberPermissions({ ...member.permissions });
+    setShowPermissionsModal(true);
+  };
+
+  const handleSavePermissions = () => {
+    if (!editingMember || !memberPermissions) return;
+    
+    updateMemberPermissions(editingMember.id, memberPermissions);
+    toast({ title: 'Permissões atualizadas!' });
+    setShowPermissionsModal(false);
+  };
+
+  const handleChangeRole = (memberId: string, role: 'admin' | 'member') => {
+    updateMemberRole(memberId, role);
+    toast({ title: 'Cargo atualizado!' });
+  };
+
   // No team yet - show create form
   if (!myTeam) {
     return (
@@ -164,6 +217,10 @@ export function TeamManagement() {
       </div>
     );
   }
+
+  const validInviteCodes = (myTeam.inviteCodes || []).filter(
+    i => new Date(i.expiresAt) > new Date() && !i.usedBy
+  );
 
   // Has team - show management
   return (
@@ -215,6 +272,57 @@ export function TeamManagement() {
         </div>
       </div>
 
+      {/* Invite Codes */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Key className="w-5 h-5 text-primary" />
+            <div>
+              <h4 className="font-semibold text-foreground">Códigos de Convite</h4>
+              <p className="text-sm text-muted-foreground">
+                Gere códigos para convidar membros sem precisar do email
+              </p>
+            </div>
+          </div>
+          <Button size="sm" onClick={handleGenerateCode}>
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Gerar Código
+          </Button>
+        </div>
+
+        {validInviteCodes.length > 0 ? (
+          <div className="space-y-2">
+            {validInviteCodes.map((invite) => (
+              <div
+                key={invite.code}
+                className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+              >
+                <div className="flex items-center gap-3">
+                  <code className="px-3 py-1 rounded-md bg-primary/10 text-primary font-mono text-lg">
+                    {invite.code}
+                  </code>
+                  <span className="text-sm text-muted-foreground">
+                    Expira em {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => handleCopyCode(invite.code)}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCode(invite.code)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Nenhum código ativo. Gere um código para convidar membros.
+          </p>
+        )}
+      </div>
+
       {/* Shared Tabs */}
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center gap-3 mb-4">
@@ -263,7 +371,7 @@ export function TeamManagement() {
           <div>
             <h4 className="font-semibold text-foreground">Membros da Equipe</h4>
             <p className="text-sm text-muted-foreground">
-              Adicione colaboradores pelo email
+              Adicione colaboradores pelo email ou compartilhe um código de convite
             </p>
           </div>
         </div>
@@ -302,13 +410,16 @@ export function TeamManagement() {
                   "flex items-center justify-between p-3 rounded-lg border",
                   member.role === 'owner' 
                     ? "border-primary/30 bg-primary/5" 
+                    : member.role === 'admin'
+                    ? "border-warning/30 bg-warning/5"
                     : "border-border"
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium",
-                    member.role === 'owner' ? "bg-primary text-primary-foreground" : "bg-muted"
+                    member.role === 'owner' ? "bg-primary text-primary-foreground" : 
+                    member.role === 'admin' ? "bg-warning text-warning-foreground" : "bg-muted"
                   )}>
                     {member.name ? member.name.charAt(0).toUpperCase() : member.email.charAt(0).toUpperCase()}
                   </div>
@@ -317,6 +428,9 @@ export function TeamManagement() {
                       {member.name || 'Sem nome'}
                       {member.role === 'owner' && (
                         <Crown className="w-4 h-4 text-yellow-500" />
+                      )}
+                      {member.role === 'admin' && (
+                        <ShieldCheck className="w-4 h-4 text-warning" />
                       )}
                     </p>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -327,20 +441,100 @@ export function TeamManagement() {
                 </div>
                 
                 {member.role !== 'owner' && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveMember(member.id, member.name)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Select 
+                      value={member.role} 
+                      onValueChange={(v) => handleChangeRole(member.id, v as 'admin' | 'member')}
+                    >
+                      <SelectTrigger className="w-[110px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="member">Membro</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenPermissions(member)}
+                      className="h-8 w-8"
+                    >
+                      <Shield className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveMember(member.id, member.name)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 )}
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Permissions Modal */}
+      <Dialog open={showPermissionsModal} onOpenChange={setShowPermissionsModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Permissões de {editingMember?.name || editingMember?.email}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {memberPermissions && (
+            <div className="space-y-4">
+              {AVAILABLE_TABS.map((tab) => (
+                <div key={tab.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div>
+                    <p className="font-medium text-foreground">{tab.label}</p>
+                    <p className="text-sm text-muted-foreground">{tab.description}</p>
+                  </div>
+                  <Select 
+                    value={memberPermissions[tab.id as keyof MemberPermissions]} 
+                    onValueChange={(v) => setMemberPermissions({
+                      ...memberPermissions,
+                      [tab.id]: v as TabPermission
+                    })}
+                  >
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PERMISSION_LABELS).map(([value, { label, icon }]) => (
+                        <SelectItem key={value} value={value}>
+                          <div className="flex items-center gap-2">
+                            {icon}
+                            {label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSavePermissions}>
+              <Save className="w-4 h-4 mr-2" />
+              Salvar Permissões
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

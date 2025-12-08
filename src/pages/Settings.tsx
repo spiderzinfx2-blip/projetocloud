@@ -19,6 +19,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from '@/hooks/use-toast';
 import { notificationSoundService, SoundType } from '@/services/notificationSoundService';
 import { TeamManagement } from '@/components/team/TeamManagement';
+import { JoinTeamByCode } from '@/components/team/JoinTeamByCode';
 
 const themeColors = [
   { id: 'blue', name: 'Azul', primary: '217 91% 60%', accent: '199 89% 48%' },
@@ -277,6 +278,7 @@ export default function Settings() {
         {activeTab === 'geral' && (
           <div className="max-w-2xl space-y-6">
             <TeamManagement />
+            <JoinTeamByCode />
           </div>
         )}
 
