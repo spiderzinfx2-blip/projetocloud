@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
-  Download, Settings, X, Edit2, Trash2, Save, Palette
+  Download, Settings, X, Edit2, Trash2, Save, Palette, Search, Loader2, Film, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, addWeeks, subWeeks, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { tmdbService } from '@/services/tmdbService';
 
 interface CalendarEvent {
   id: string;
@@ -26,6 +28,11 @@ interface CalendarEvent {
   description?: string;
   time?: string;
   color?: string;
+  // TMDB content
+  contentId?: number;
+  contentTitle?: string;
+  contentPoster?: string;
+  contentType?: 'movie' | 'tv';
 }
 
 interface CalendarDesign {
@@ -63,6 +70,18 @@ export function CalendarTab() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
+  // TMDB Search
+  const [showContentSearch, setShowContentSearch] = useState(false);
+  const [contentSearchQuery, setContentSearchQuery] = useState('');
+  const [contentSearchResults, setContentSearchResults] = useState<any[]>([]);
+  const [isSearchingContent, setIsSearchingContent] = useState(false);
+  const [selectedContent, setSelectedContent] = useState<{
+    id: number;
+    title: string;
+    poster: string;
+    type: 'movie' | 'tv';
+  } | null>(null);
+  
   const calendarRef = useRef<HTMLDivElement>(null);
   
   // Form state
@@ -96,6 +115,38 @@ export function CalendarTab() {
     toast({ title: 'Design salvo!' });
   };
 
+  // Search TMDB
+  const handleContentSearch = async () => {
+    if (!contentSearchQuery.trim()) return;
+    setIsSearchingContent(true);
+    try {
+      const results = await tmdbService.searchMulti(contentSearchQuery);
+      setContentSearchResults(
+        results.results?.filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv') || []
+      );
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearchingContent(false);
+    }
+  };
+
+  const handleSelectContent = (item: any) => {
+    setSelectedContent({
+      id: item.id,
+      title: item.title || item.name,
+      poster: item.poster_path,
+      type: item.media_type
+    });
+    setShowContentSearch(false);
+    setContentSearchQuery('');
+    setContentSearchResults([]);
+  };
+
+  const handleClearContent = () => {
+    setSelectedContent(null);
+  };
+
   const handleAddEvent = () => {
     if (!eventForm.title.trim() || !eventForm.date) {
       toast({ title: 'Preencha título e data', variant: 'destructive' });
@@ -108,7 +159,11 @@ export function CalendarTab() {
       date: eventForm.date,
       time: eventForm.time,
       type: eventForm.type,
-      description: eventForm.description
+      description: eventForm.description,
+      contentId: selectedContent?.id,
+      contentTitle: selectedContent?.title,
+      contentPoster: selectedContent?.poster,
+      contentType: selectedContent?.type
     };
 
     if (editingEvent) {
@@ -122,6 +177,7 @@ export function CalendarTab() {
     setShowEventModal(false);
     setEditingEvent(null);
     setEventForm({ title: '', date: '', time: '', type: 'event', description: '' });
+    setSelectedContent(null);
   };
 
   const handleEditEvent = (event: CalendarEvent) => {
@@ -133,6 +189,16 @@ export function CalendarTab() {
       type: event.type,
       description: event.description || ''
     });
+    if (event.contentId) {
+      setSelectedContent({
+        id: event.contentId,
+        title: event.contentTitle || '',
+        poster: event.contentPoster || '',
+        type: event.contentType || 'movie'
+      });
+    } else {
+      setSelectedContent(null);
+    }
     setShowEventModal(true);
   };
 
@@ -150,6 +216,7 @@ export function CalendarTab() {
       type: 'event',
       description: ''
     });
+    setSelectedContent(null);
     setShowEventModal(true);
   };
 
@@ -195,7 +262,6 @@ export function CalendarTab() {
     } else {
       const start = startOfMonth(currentDate);
       const end = endOfMonth(currentDate);
-      // Include days from previous month to fill first week
       const startWeek = startOfWeek(start, { weekStartsOn: 0 });
       const endWeek = endOfWeek(end, { weekStartsOn: 0 });
       return eachDayOfInterval({ start: startWeek, end: endWeek });
@@ -324,12 +390,17 @@ export function CalendarTab() {
                         key={event.id}
                         onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
                         className={cn(
-                          "w-full text-left text-xs p-1.5 rounded truncate text-white",
-                          typeInfo?.color || 'bg-primary'
+                          "w-full text-left text-xs p-1 rounded overflow-hidden",
+                          event.contentPoster ? "bg-cover bg-center relative" : typeInfo?.color || 'bg-primary'
                         )}
+                        style={event.contentPoster ? {
+                          backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${tmdbService.getImageUrl(event.contentPoster, 'w185')})`
+                        } : undefined}
                       >
-                        {event.time && <span className="opacity-80">{event.time} </span>}
-                        {event.title}
+                        <span className="text-white truncate block">
+                          {event.time && <span className="opacity-80">{event.time} </span>}
+                          {event.title}
+                        </span>
                       </button>
                     );
                   })}
@@ -360,7 +431,15 @@ export function CalendarTab() {
                   key={event.id}
                   className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
                 >
-                  <div className={cn("w-3 h-3 rounded-full", typeInfo?.color)} />
+                  {event.contentPoster ? (
+                    <img 
+                      src={tmdbService.getImageUrl(event.contentPoster, 'w92')}
+                      alt={event.contentTitle}
+                      className="w-10 h-14 object-cover rounded"
+                    />
+                  ) : (
+                    <div className={cn("w-3 h-3 rounded-full", typeInfo?.color)} />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{event.title}</p>
                     <p className="text-xs text-muted-foreground">
@@ -390,7 +469,7 @@ export function CalendarTab() {
 
       {/* Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
           </DialogHeader>
@@ -442,6 +521,42 @@ export function CalendarTab() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* TMDB Content Selection */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Film className="w-4 h-4" />
+                Vincular Conteúdo (Filme/Série)
+              </Label>
+              
+              {selectedContent ? (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                  <img 
+                    src={tmdbService.getImageUrl(selectedContent.poster, 'w92')}
+                    alt={selectedContent.title}
+                    className="w-12 h-16 object-cover rounded"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{selectedContent.title}</p>
+                    <Badge variant="outline" className="text-xs mt-1">
+                      {selectedContent.type === 'movie' ? 'Filme' : 'Série'}
+                    </Badge>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={handleClearContent}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start text-muted-foreground"
+                  onClick={() => setShowContentSearch(true)}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Buscar filme ou série...
+                </Button>
+              )}
+            </div>
             
             <div className="space-y-2">
               <Label>Descrição</Label>
@@ -472,6 +587,59 @@ export function CalendarTab() {
                 {editingEvent ? 'Salvar' : 'Adicionar'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Content Search Modal */}
+      <Dialog open={showContentSearch} onOpenChange={setShowContentSearch}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buscar Conteúdo</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Buscar filme ou série..."
+                value={contentSearchQuery}
+                onChange={(e) => setContentSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleContentSearch()}
+              />
+              <Button onClick={handleContentSearch} disabled={isSearchingContent}>
+                {isSearchingContent ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-2">
+                {contentSearchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectContent(item)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <img
+                      src={tmdbService.getImageUrl(item.poster_path, 'w92')}
+                      alt={item.title || item.name}
+                      className="w-10 h-14 object-cover rounded"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{item.title || item.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">
+                          {item.media_type === 'movie' ? 'Filme' : 'Série'}
+                        </Badge>
+                        <span className="flex items-center gap-1">
+                          <Star className="w-3 h-3 text-warning fill-warning" />
+                          {item.vote_average?.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>

@@ -534,14 +534,27 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         </div>
       </div>
       
-      {/* Existing content warning if has priority */}
-      {existingContent?.isPriority && (
-        <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+      {/* Existing content warning - Paid AND Priority */}
+      {existingContent?.isPaid && existingContent?.isPriority && (
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-warning">Este conteúdo já possui prioridade</p>
+            <p className="font-medium text-destructive">Conteúdo já totalmente patrocinado!</p>
             <p className="text-muted-foreground">
-              Você não precisa pagar novamente pela prioridade.
+              Este conteúdo já está pago e com prioridade ativa. Não é necessário pagar novamente.
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* Existing content warning - Only Paid (no priority) */}
+      {existingContent?.isPaid && !existingContent?.isPriority && (
+        <div className="p-3 rounded-lg bg-info/10 border border-info/20 flex items-start gap-3">
+          <Info className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-info">Conteúdo já pago!</p>
+            <p className="text-muted-foreground">
+              Este conteúdo já está patrocinado. Se desejar, você pode adicionar prioridade para que seja produzido mais rapidamente.
             </p>
           </div>
         </div>
