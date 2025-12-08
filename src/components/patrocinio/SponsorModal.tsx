@@ -365,14 +365,56 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       episodesBySeason[ep.season].push(ep);
     });
     
-    // Save sponsorship request
-    const request = {
+    // Build items array for the order
+    const items = selectedContent?.media_type === 'movie' 
+      ? [{
+          id: selectedContent.id,
+          title: selectedContent.title || selectedContent.name || '',
+          type: 'movie' as const,
+          poster: selectedContent.poster_path || '',
+          runtime: contentDetails?.runtime,
+          price: pricing.base,
+          wantsPriority: wantsPriority
+        }]
+      : selectedEpisodes.map(ep => ({
+          id: ep.id,
+          title: selectedContent?.name || selectedContent?.title || '',
+          type: 'tv' as const,
+          poster: selectedContent?.poster_path || '',
+          episodeInfo: {
+            seasonNumber: ep.season,
+            episodeNumber: ep.episode,
+            episodeName: ep.name
+          },
+          price: profile.episodePrice || 0,
+          wantsPriority: wantsPriority
+        }));
+    
+    // Create order in the correct format for OrdersTab
+    const order = {
       id: Date.now().toString(),
       orderCode: code,
-      creatorId: profile.id,
       creatorUsername: profile.username,
-      creatorName: profile.name,
+      items: items,
       buyerInfo: buyerInfo,
+      subtotal: pricing.base,
+      priorityTotal: pricing.priority,
+      total: pricing.total,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString()
+    };
+
+    // Save to sponsor-orders (the key OrdersTab uses)
+    const existingOrders = JSON.parse(localStorage.getItem('sponsor-orders') || '[]');
+    existingOrders.push(order);
+    localStorage.setItem('sponsor-orders', JSON.stringify(existingOrders));
+
+    // Also save to legacy keys for backwards compatibility
+    const existingRequests = JSON.parse(localStorage.getItem('sponsorship_requests') || '[]');
+    existingRequests.push({
+      ...order,
+      creatorId: profile.id,
+      creatorName: profile.name,
       contentId: selectedContent?.id,
       contentTitle: selectedContent?.title || selectedContent?.name,
       contentType: selectedContent?.media_type,
@@ -383,22 +425,11 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       message,
       basePrice: pricing.base,
       priorityPrice: pricing.priority,
-      totalPrice: pricing.total,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    // Save to sponsorship requests (for buyer)
-    const existingRequests = JSON.parse(localStorage.getItem('sponsorship_requests') || '[]');
-    existingRequests.push(request);
+      totalPrice: pricing.total
+    });
     localStorage.setItem('sponsorship_requests', JSON.stringify(existingRequests));
 
-    // Save to creator's order panel
-    const creatorOrders = JSON.parse(localStorage.getItem(`creator_orders_${profile.username}`) || '[]');
-    creatorOrders.unshift(request);
-    localStorage.setItem(`creator_orders_${profile.username}`, JSON.stringify(creatorOrders));
-
-    // Trigger notification for creator (simulated)
+    // Trigger notification for creator
     const notifications = JSON.parse(localStorage.getItem(`creator_notifications_${profile.username}`) || '[]');
     notifications.unshift({
       id: Date.now().toString(),
@@ -1082,11 +1113,28 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
               </ol>
               
               <div className="mt-4 p-3 rounded bg-muted/50">
-                <p className="text-sm font-medium">Contato do Criador:</p>
-                <p className="text-sm text-muted-foreground">@{profile.username}</p>
+                <p className="text-sm font-medium mb-2">Contato do Criador:</p>
+                {/* Show contactMethods from profile if available */}
+                {(profile as any).contactMethods && (profile as any).contactMethods.length > 0 ? (
+                  <div className="space-y-1">
+                    {(profile as any).contactMethods
+                      .sort((a: any, b: any) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
+                      .map((contact: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground capitalize">{contact.platform}:</span>
+                          <span className="text-foreground font-medium">{contact.value}</span>
+                          {contact.isPrimary && (
+                            <Badge variant="outline" className="text-xs">Principal</Badge>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">@{profile.username}</p>
+                )}
                 {profile.socialLinks?.youtube && (
                   <a href={profile.socialLinks.youtube} target="_blank" rel="noopener noreferrer" 
-                    className="text-sm text-primary hover:underline block">
+                    className="text-sm text-primary hover:underline block mt-2">
                     YouTube
                   </a>
                 )}
