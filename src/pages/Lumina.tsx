@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   BarChart3, Calendar, DollarSign, Film, 
-  Search, Plus, ExternalLink, Trash2, Wifi, WifiOff, Star, Check, X, Loader2, Clapperboard
+  Search, Plus, ExternalLink, Trash2, Star, Check, X, Loader2, Clapperboard, Settings, User
 } from 'lucide-react';
 import { tmdbService } from '@/services/tmdbService';
 import { cn } from '@/lib/utils';
+import { CreatorProfileConfig } from '@/components/lumina/CreatorProfileConfig';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ContentItem {
   id: number;
@@ -40,6 +42,26 @@ interface CalendarEvent {
   poster_path?: string;
 }
 
+interface CreatorProfile {
+  username: string;
+  displayName: string;
+  bio: string;
+  avatar: string;
+  banner: string;
+  specialties: string[];
+  moviePriceShort: number;
+  moviePriceLong: number;
+  episodePrice: number;
+  priorityPrice: number;
+  socialLinks: {
+    youtube?: string;
+    instagram?: string;
+    twitter?: string;
+    tiktok?: string;
+  };
+  isPublic: boolean;
+}
+
 // Stat Card Component
 const StatCard = ({ icon: Icon, label, value, gradient }: { 
   icon: React.ElementType; 
@@ -62,7 +84,8 @@ const StatCard = ({ icon: Icon, label, value, gradient }: {
 
 export default function Lumina() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sponsorship' | 'organizer' | 'calendar'>('dashboard');
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sponsorship' | 'organizer' | 'calendar' | 'profile'>('dashboard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Search state
@@ -74,6 +97,7 @@ export default function Lumina() {
   const [sponsoredContent, setSponsoredContent] = useState<ContentItem[]>([]);
   const [organizerContent, setOrganizerContent] = useState<ContentItem[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [creatorProfile, setCreatorProfile] = useState<CreatorProfile | null>(null);
   
   // Modals
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -97,10 +121,12 @@ export default function Lumina() {
     const savedSponsored = localStorage.getItem('sponsored-content');
     const savedOrganizer = localStorage.getItem('organizer-content');
     const savedEvents = localStorage.getItem('calendar-events');
+    const savedProfile = localStorage.getItem('creator-profile');
     
     if (savedSponsored) setSponsoredContent(JSON.parse(savedSponsored));
     if (savedOrganizer) setOrganizerContent(JSON.parse(savedOrganizer));
     if (savedEvents) setCalendarEvents(JSON.parse(savedEvents));
+    if (savedProfile) setCreatorProfile(JSON.parse(savedProfile));
   }, []);
 
   const handleSearch = async () => {
@@ -141,11 +167,17 @@ export default function Lumina() {
     localStorage.setItem('organizer-content', JSON.stringify(updated));
   };
 
+  const handleSaveCreatorProfile = (profile: CreatorProfile) => {
+    setCreatorProfile(profile);
+    localStorage.setItem('creator-profile', JSON.stringify(profile));
+  };
+
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'sponsorship', label: 'Patrocínio', icon: DollarSign },
     { id: 'organizer', label: 'Organizador', icon: Film },
     { id: 'calendar', label: 'Calendário', icon: Calendar },
+    { id: 'profile', label: 'Meu Perfil', icon: User },
   ];
 
   return (
@@ -155,16 +187,23 @@ export default function Lumina() {
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border">
           {isOnline ? (
             <>
-              <div className="status-dot status-online" />
+              <div className="w-2 h-2 rounded-full bg-success" />
               <span className="text-sm text-success font-medium">Online</span>
             </>
           ) : (
             <>
-              <div className="status-dot status-offline" />
+              <div className="w-2 h-2 rounded-full bg-warning" />
               <span className="text-sm text-warning font-medium">Offline</span>
             </>
           )}
         </div>
+        
+        {creatorProfile?.isPublic && creatorProfile?.username && (
+          <Button variant="outline" size="sm" onClick={() => navigate(`/patrocinio/@${creatorProfile.username}`)}>
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Ver Perfil Público
+          </Button>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -255,12 +294,54 @@ export default function Lumina() {
             </Button>
           </div>
           
-          <div className="bg-card rounded-xl border border-border p-12 text-center">
-            <DollarSign className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
-            <p className="text-muted-foreground">
-              Configure seu perfil de patrocínio para receber solicitações
-            </p>
-          </div>
+          {creatorProfile?.isPublic ? (
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center gap-4 mb-6">
+                {creatorProfile.avatar ? (
+                  <img src={creatorProfile.avatar} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-8 h-8 text-primary" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">{creatorProfile.displayName}</h3>
+                  <p className="text-sm text-muted-foreground">@{creatorProfile.username}</p>
+                </div>
+                <Badge className="ml-auto bg-success/10 text-success">Perfil Público</Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Filme Curto</p>
+                  <p className="text-lg font-bold text-foreground">R$ {creatorProfile.moviePriceShort}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Filme Longo</p>
+                  <p className="text-lg font-bold text-foreground">R$ {creatorProfile.moviePriceLong}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Episódio</p>
+                  <p className="text-lg font-bold text-foreground">R$ {creatorProfile.episodePrice}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Prioridade</p>
+                  <p className="text-lg font-bold text-foreground">+R$ {creatorProfile.priorityPrice}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-card rounded-xl border border-border p-12 text-center">
+              <DollarSign className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
+              <p className="text-muted-foreground mb-4">
+                Configure seu perfil de criador para receber solicitações de patrocínio
+              </p>
+              <Button onClick={() => setActiveTab('profile')}>
+                <Settings className="w-4 h-4 mr-2" />
+                Configurar Perfil
+              </Button>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -405,6 +486,14 @@ export default function Lumina() {
             <p className="text-muted-foreground">Calendário de eventos em desenvolvimento...</p>
           </div>
         </motion.div>
+      )}
+
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
+        <CreatorProfileConfig
+          profile={creatorProfile}
+          onSave={handleSaveCreatorProfile}
+        />
       )}
     </AppLayout>
   );
