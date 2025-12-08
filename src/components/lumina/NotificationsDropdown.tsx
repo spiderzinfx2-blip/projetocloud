@@ -64,6 +64,12 @@ export function NotificationsDropdown({ username }: NotificationsDropdownProps) 
   }, [username]);
 
   const playNotificationSound = () => {
+    // Get volume from localStorage
+    const savedVolume = localStorage.getItem('notification-volume');
+    const volume = savedVolume ? parseInt(savedVolume) : 50;
+    
+    if (volume === 0) return; // Muted
+    
     // Create audio context for notification sound
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -75,7 +81,8 @@ export function NotificationsDropdown({ username }: NotificationsDropdownProps) 
       
       oscillator.frequency.value = 800;
       oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      const normalizedVolume = volume / 100;
+      gainNode.gain.setValueAtTime(normalizedVolume * 0.5, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
       
       oscillator.start(audioContext.currentTime);

@@ -77,6 +77,23 @@ export function ContentOrganizerTab() {
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [expandedSeasons, setExpandedSeasons] = useState<number[]>([]);
+  
+  // Add content modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addingContent, setAddingContent] = useState<any | null>(null);
+  const [addContentPriority, setAddContentPriority] = useState<number>(1);
+  const [addContentSponsor, setAddContentSponsor] = useState<string>('');
+  const [loadingAddSeasons, setLoadingAddSeasons] = useState(false);
+  const [addContentSeasons, setAddContentSeasons] = useState<any[]>([]);
+  const [addContentEpisodes, setAddContentEpisodes] = useState<any[]>([]);
+  const [addSelectedSeason, setAddSelectedSeason] = useState<number>(1);
+  const [addSponsoredEpisodes, setAddSponsoredEpisodes] = useState<{
+    season: number;
+    episode: number;
+    isPaid: boolean;
+    isPriority: boolean;
+    sponsorName?: string;
+  }[]>([]);
 
   // Load content
   useEffect(() => {
@@ -102,38 +119,141 @@ export function ContentOrganizerTab() {
     }
   };
 
-  const handleAddContent = async (item: any) => {
+  const handleSelectContent = async (item: any) => {
     // Check if already exists
     if (content.some(c => c.id === item.id)) {
       toast({ title: 'Conteúdo já adicionado', variant: 'destructive' });
       return;
     }
 
-    let contentWithDetails: ContentItem = {
-      ...item,
-      addedDate: new Date().toISOString(),
-      priority: 1,
-      isWatched: false,
-      isPaidAdvanced: false,
-      sponsoredEpisodes: []
-    };
-
+    setAddingContent(item);
+    setAddContentPriority(1);
+    setAddContentSponsor('');
+    setAddSponsoredEpisodes([]);
+    setAddContentSeasons([]);
+    setAddContentEpisodes([]);
+    
     // Get seasons for TV shows
     if (item.media_type === 'tv') {
-      const details = await tmdbService.getTVDetails(item.id);
-      if (details?.seasons) {
-        contentWithDetails.seasons = details.seasons
-          .filter((s: any) => s.season_number > 0)
-          .map((s: any) => ({
-            season_number: s.season_number,
-            episode_count: s.episode_count,
-            name: s.name
-          }));
+      setLoadingAddSeasons(true);
+      try {
+        const details = await tmdbService.getTVDetails(item.id);
+        if (details?.seasons) {
+          const filteredSeasons = details.seasons
+            .filter((s: any) => s.season_number > 0)
+            .map((s: any) => ({
+              season_number: s.season_number,
+              episode_count: s.episode_count,
+              name: s.name
+            }));
+          setAddContentSeasons(filteredSeasons);
+          
+          // Load first season episodes
+          if (filteredSeasons.length > 0) {
+            setAddSelectedSeason(filteredSeasons[0].season_number);
+            const seasonData = await tmdbService.getTVSeasonDetails(item.id, filteredSeasons[0].season_number);
+            if (seasonData?.episodes) {
+              setAddContentEpisodes(seasonData.episodes);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading seasons:', error);
+      } finally {
+        setLoadingAddSeasons(false);
       }
     }
+    
+    setShowSearchModal(false);
+    setShowAddModal(true);
+  };
+
+  const loadAddSeasonEpisodes = async (contentId: number, seasonNumber: number) => {
+    setAddSelectedSeason(seasonNumber);
+    try {
+      const data = await tmdbService.getTVSeasonDetails(contentId, seasonNumber);
+      if (data?.episodes) {
+        setAddContentEpisodes(data.episodes);
+      }
+    } catch (error) {
+      console.error('Error loading episodes:', error);
+    }
+  };
+
+  const toggleAddEpisodePaid = (episode: any, paid: boolean) => {
+    const existing = addSponsoredEpisodes.findIndex(
+      e => e.season === episode.season_number && e.episode === episode.episode_number
+    );
+
+    if (existing >= 0) {
+      const updated = [...addSponsoredEpisodes];
+      updated[existing] = { ...updated[existing], isPaid: paid };
+      setAddSponsoredEpisodes(updated);
+    } else {
+      setAddSponsoredEpisodes([
+        ...addSponsoredEpisodes,
+        { season: episode.season_number, episode: episode.episode_number, isPaid: paid, isPriority: false }
+      ]);
+    }
+  };
+
+  const toggleAddEpisodePriority = (episode: any, priority: boolean) => {
+    const existing = addSponsoredEpisodes.findIndex(
+      e => e.season === episode.season_number && e.episode === episode.episode_number
+    );
+
+    if (existing >= 0) {
+      const updated = [...addSponsoredEpisodes];
+      updated[existing] = { ...updated[existing], isPriority: priority };
+      setAddSponsoredEpisodes(updated);
+    } else {
+      setAddSponsoredEpisodes([
+        ...addSponsoredEpisodes,
+        { season: episode.season_number, episode: episode.episode_number, isPaid: false, isPriority: priority }
+      ]);
+    }
+  };
+
+  const updateAddEpisodeSponsor = (episode: any, sponsorName: string) => {
+    const existing = addSponsoredEpisodes.findIndex(
+      e => e.season === episode.season_number && e.episode === episode.episode_number
+    );
+
+    if (existing >= 0) {
+      const updated = [...addSponsoredEpisodes];
+      updated[existing] = { ...updated[existing], sponsorName };
+      setAddSponsoredEpisodes(updated);
+    } else {
+      setAddSponsoredEpisodes([
+        ...addSponsoredEpisodes,
+        { season: episode.season_number, episode: episode.episode_number, isPaid: false, isPriority: false, sponsorName }
+      ]);
+    }
+  };
+
+  const getAddEpisodeStatus = (episode: any) => {
+    return addSponsoredEpisodes.find(
+      e => e.season === episode.season_number && e.episode === episode.episode_number
+    );
+  };
+
+  const confirmAddContent = () => {
+    if (!addingContent) return;
+
+    const contentWithDetails: ContentItem = {
+      ...addingContent,
+      addedDate: new Date().toISOString(),
+      priority: addContentPriority,
+      isWatched: false,
+      isPaidAdvanced: !!addContentSponsor,
+      sponsorName: addContentSponsor || undefined,
+      sponsoredEpisodes: addSponsoredEpisodes,
+      seasons: addContentSeasons.length > 0 ? addContentSeasons : undefined
+    };
 
     saveContent([...content, contentWithDetails]);
-    setShowSearchModal(false);
+    setShowAddModal(false);
+    setAddingContent(null);
     setSearchQuery('');
     setSearchResults([]);
     toast({ title: 'Conteúdo adicionado!' });
@@ -339,7 +459,7 @@ export function ContentOrganizerTab() {
                       <Button
                         size="sm"
                         variant={content.some(c => c.id === result.id) ? "secondary" : "default"}
-                        onClick={() => handleAddContent(result)}
+                        onClick={() => handleSelectContent(result)}
                         disabled={content.some(c => c.id === result.id)}
                       >
                         {content.some(c => c.id === result.id) ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -590,6 +710,182 @@ export function ContentOrganizerTab() {
                 <div className="flex-1" />
                 <Button variant="outline" onClick={() => setShowDetailsModal(false)}>
                   Fechar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Content Modal - Same style as Edit */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {addingContent && (
+                <>
+                  <img
+                    src={tmdbService.getImageUrl(addingContent.poster_path, 'w92')}
+                    alt={addingContent.title || addingContent.name}
+                    className="w-12 h-16 object-cover rounded"
+                  />
+                  <div>
+                    <h3 className="font-semibold">{addingContent.title || addingContent.name}</h3>
+                    <Badge variant="outline" className="mt-1">
+                      {addingContent.media_type === 'movie' ? 'Filme' : 'Série'}
+                    </Badge>
+                  </div>
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {addingContent && (
+            <div className="space-y-6">
+              {/* General Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Patrocinador Geral</Label>
+                  <Input
+                    value={addContentSponsor}
+                    onChange={(e) => setAddContentSponsor(e.target.value)}
+                    placeholder="Nome do patrocinador"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Prioridade Geral</Label>
+                  <Select 
+                    value={addContentPriority.toString()}
+                    onValueChange={(v) => setAddContentPriority(parseInt(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Baixa</SelectItem>
+                      <SelectItem value="2">Média</SelectItem>
+                      <SelectItem value="3">Alta</SelectItem>
+                      <SelectItem value="4">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Episodes for TV Shows */}
+              {addingContent.media_type === 'tv' && addContentSeasons.length > 0 && (
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Tv className="w-4 h-4" />
+                    Gerenciar Episódios
+                  </h4>
+                  
+                  {loadingAddSeasons ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Season Tabs */}
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {addContentSeasons.map((season) => (
+                          <Button
+                            key={season.season_number}
+                            variant={addSelectedSeason === season.season_number ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => loadAddSeasonEpisodes(addingContent.id, season.season_number)}
+                          >
+                            T{season.season_number} ({season.episode_count})
+                          </Button>
+                        ))}
+                      </div>
+                      
+                      {/* Episodes List */}
+                      <ScrollArea className="h-[300px] border border-border rounded-lg">
+                        <div className="divide-y divide-border">
+                          {addContentEpisodes.map((episode) => {
+                            const status = getAddEpisodeStatus(episode);
+                            return (
+                              <div 
+                                key={episode.id}
+                                className="p-3 hover:bg-muted/30 transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={tmdbService.getImageUrl(episode.still_path, 'w185')}
+                                    alt={episode.name}
+                                    className="w-24 h-14 object-cover rounded"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">
+                                      E{episode.episode_number}: {episode.name}
+                                    </p>
+                                    <div className="flex items-center gap-4 mt-2">
+                                      <label className="flex items-center gap-2 text-sm">
+                                        <Checkbox 
+                                          checked={status?.isPaid || false}
+                                          onCheckedChange={(c) => toggleAddEpisodePaid(episode, !!c)}
+                                        />
+                                        <span className={cn(status?.isPaid && "text-success")}>Pago</span>
+                                      </label>
+                                      <label className="flex items-center gap-2 text-sm">
+                                        <Checkbox 
+                                          checked={status?.isPriority || false}
+                                          onCheckedChange={(c) => toggleAddEpisodePriority(episode, !!c)}
+                                        />
+                                        <span className={cn(status?.isPriority && "text-warning")}>Prioridade</span>
+                                      </label>
+                                    </div>
+                                  </div>
+                                  <div className="w-32">
+                                    <Input
+                                      placeholder="Patrocinador"
+                                      value={status?.sponsorName || ''}
+                                      onChange={(e) => updateAddEpisodeSponsor(episode, e.target.value)}
+                                      className="text-xs h-8"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                      
+                      {/* Stats */}
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-2xl font-bold text-foreground">
+                            {addSponsoredEpisodes.filter(e => e.isPaid).length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Episódios Pagos</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-2xl font-bold text-warning">
+                            {addSponsoredEpisodes.filter(e => e.isPriority).length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Com Prioridade</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-2xl font-bold text-muted-foreground">
+                            {addContentSeasons.reduce((sum, s) => sum + s.episode_count, 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Total de Episódios</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                  Cancelar
+                </Button>
+                <div className="flex-1" />
+                <Button onClick={confirmAddContent}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar ao Organizador
                 </Button>
               </div>
             </div>

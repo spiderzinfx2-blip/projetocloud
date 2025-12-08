@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Settings as SettingsIcon, User, Palette, Download, Building2, 
-  Save, Check, Moon, Sun, Monitor, Upload, Trash2, FileJson, FileSpreadsheet 
+  Save, Check, Moon, Sun, Monitor, Upload, Trash2, FileJson, FileSpreadsheet,
+  Volume2, VolumeX
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
 import { useAuth, UserData, saveUserData, loadUserData, ConfigEmpresa } from '@/hooks/useAuth';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { cn } from '@/lib/utils';
@@ -30,6 +32,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<'perfil' | 'empresa' | 'aparencia' | 'dados'>('perfil');
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedColor, setSelectedColor] = useState('blue');
+  const [notificationVolume, setNotificationVolume] = useState(50);
   
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -49,6 +52,12 @@ export default function Settings() {
   });
 
   useEffect(() => {
+    // Load notification volume from localStorage
+    const savedVolume = localStorage.getItem('notification-volume');
+    if (savedVolume) {
+      setNotificationVolume(parseInt(savedVolume));
+    }
+    
     if (user) {
       const saved = loadUserData(user.id);
       if (saved) {
@@ -65,6 +74,39 @@ export default function Settings() {
       }
     }
   }, [user]);
+
+  const handleVolumeChange = (value: number[]) => {
+    const volume = value[0];
+    setNotificationVolume(volume);
+    localStorage.setItem('notification-volume', volume.toString());
+    
+    // Play test sound
+    if (volume > 0) {
+      playTestSound(volume);
+    }
+  };
+
+  const playTestSound = (volume: number) => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      const normalizedVolume = volume / 100;
+      gainNode.gain.setValueAtTime(normalizedVolume * 0.5, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+      console.log('Audio not supported');
+    }
+  };
 
   const handleSaveProfile = () => {
     if (!user || !userData) return;
@@ -347,6 +389,34 @@ export default function Settings() {
                   Salvar Configurações
                 </Button>
               </div>
+            </div>
+
+            {/* Notification Sound Volume */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Volume de Notificações</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Ajuste o volume do alerta sonoro para novos pedidos
+              </p>
+              
+              <div className="flex items-center gap-4">
+                <VolumeX className="w-5 h-5 text-muted-foreground" />
+                <Slider
+                  value={[notificationVolume]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  step={5}
+                  className="flex-1"
+                />
+                <Volume2 className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm font-medium w-12 text-right">{notificationVolume}%</span>
+              </div>
+              
+              {notificationVolume === 0 && (
+                <p className="text-xs text-warning mt-2 flex items-center gap-1">
+                  <VolumeX className="w-3 h-3" />
+                  Som de notificações desativado
+                </p>
+              )}
             </div>
           </div>
         )}
