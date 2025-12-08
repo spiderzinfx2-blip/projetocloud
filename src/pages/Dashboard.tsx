@@ -1,25 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GlassCard } from '@/components/ui/glass-card';
-import { GlassButton } from '@/components/ui/glass-button';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Settings, Clapperboard, BarChart3, Zap, LogOut, User } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { Settings, Clapperboard, BarChart3, Zap, ArrowRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Button } from '@/components/ui/button';
 
-interface DashboardProps {
-  onNavigate?: (section: string) => void;
-}
-
-const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   const tools = [
     {
@@ -27,10 +15,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       title: 'Gerenciamento',
       description: 'Clientes, Serviços, Trabalhos e Faturamento',
       icon: Settings,
-      color: 'from-blue-500/20 to-cyan-500/20',
-      borderColor: 'border-blue-500/30',
-      hoverColor: 'hover:border-blue-500/50',
-      iconColor: 'text-blue-500',
+      gradient: 'from-blue-500 to-cyan-500',
+      bgGradient: 'from-blue-500/10 to-cyan-500/10',
       path: '/gerenciamento',
       available: true
     },
@@ -39,34 +25,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       title: 'Lumina Creators',
       description: 'Ferramentas para criadores de conteúdo da plataforma Lumina',
       icon: Clapperboard,
-      color: 'from-purple-500/20 to-pink-500/20',
-      borderColor: 'border-purple-500/30',
-      hoverColor: 'hover:border-purple-500/50',
-      iconColor: 'text-purple-500',
+      gradient: 'from-violet-500 to-purple-500',
+      bgGradient: 'from-violet-500/10 to-purple-500/10',
       path: '/cinefy',
       available: true
     },
     {
       id: 'analytics',
       title: 'Analytics',
-      description: 'Relatórios e análises detalhadas',
+      description: 'Relatórios e análises detalhadas do seu negócio',
       icon: BarChart3,
-      color: 'from-green-500/20 to-emerald-500/20',
-      borderColor: 'border-green-500/30',
-      hoverColor: 'hover:border-green-500/50',
-      iconColor: 'text-green-500',
+      gradient: 'from-emerald-500 to-teal-500',
+      bgGradient: 'from-emerald-500/10 to-teal-500/10',
       path: '/analytics',
       available: false
     },
     {
       id: 'automation',
       title: 'Automação',
-      description: 'Workflows e processos automatizados',
+      description: 'Workflows e processos automatizados inteligentes',
       icon: Zap,
-      color: 'from-yellow-500/20 to-orange-500/20',
-      borderColor: 'border-yellow-500/30',
-      hoverColor: 'hover:border-yellow-500/50',
-      iconColor: 'text-yellow-500',
+      gradient: 'from-amber-500 to-orange-500',
+      bgGradient: 'from-amber-500/10 to-orange-500/10',
       path: '/automacao',
       available: false
     }
@@ -79,152 +59,129 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5">
-      {/* Header */}
+    <AppLayout title="Dashboard" subtitle="Bem-vindo ao seu painel de controle">
+      {/* Hero Section */}
       <motion.div
-        className="flex justify-between items-center p-6 border-b border-border/50 backdrop-blur-sm bg-background/80"
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5 }}
+        className="mb-8"
       >
-        <div className="flex items-center space-x-3">
-          <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-            <User className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-foreground">Bem-vindo!</h2>
-            <p className="text-sm text-muted-foreground">{user?.email || 'Usuário'}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <ThemeToggle />
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-primary p-8 lg:p-10">
+          <div className="absolute inset-0 bg-grid opacity-10" />
+          <div className="absolute top-0 right-0 w-80 h-80 bg-primary-foreground/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           
-          <GlassButton
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            <LogOut className="h-4 w-4" />
-          </GlassButton>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 backdrop-blur-sm flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-primary-foreground/20 text-sm font-medium text-primary-foreground">
+                Versão 2.0
+              </span>
+            </div>
+            
+            <h1 className="text-3xl lg:text-4xl font-bold text-primary-foreground mb-3">
+              Ferramentas Disponíveis
+            </h1>
+            <p className="text-primary-foreground/80 text-lg max-w-xl">
+              Escolha uma das ferramentas abaixo para começar a gerenciar seu negócio de forma eficiente.
+            </p>
+          </div>
         </div>
       </motion.div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Title Section */}
-        <motion.div
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-4">
-            Ferramentas Disponíveis
-          </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Escolha uma das ferramentas abaixo para começar
-          </p>
-        </motion.div>
-
-        {/* Tools Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {tools.map((tool, index) => {
-            const Icon = tool.icon;
-            const isAvailable = tool.available;
-            
-            return (
-              <motion.div
-                key={tool.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.15 + 0.4 }}
+      {/* Tools Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+        {tools.map((tool, index) => {
+          const Icon = tool.icon;
+          const isAvailable = tool.available;
+          
+          return (
+            <motion.div
+              key={tool.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+            >
+              <div 
+                onClick={() => handleToolClick(tool)}
+                className={cn(
+                  "group relative overflow-hidden rounded-xl border border-border bg-card p-6 transition-all duration-300",
+                  isAvailable 
+                    ? "cursor-pointer hover:shadow-elevated hover:-translate-y-1 hover:border-primary/30" 
+                    : "cursor-not-allowed opacity-60"
+                )}
               >
-                <GlassCard 
-                  className={cn(
-                    "p-8 transition-all duration-300 group bg-gradient-to-br",
-                    tool.color,
-                    tool.borderColor,
-                    isAvailable ? [
-                      "cursor-pointer",
-                      tool.hoverColor,
-                      "hover:scale-[1.02] hover:shadow-xl"
-                    ] : [
-                      "cursor-not-allowed opacity-60"
-                    ]
-                  )}
-                  onClick={() => handleToolClick(tool)}
-                >
-                  <div className="text-center space-y-6">
-                    {/* Icon */}
-                    <div className="flex justify-center">
-                      <div className={cn(
-                        "p-4 rounded-full bg-background/50 backdrop-blur-sm border border-border/30 transition-transform duration-300",
-                        isAvailable && "group-hover:scale-110"
-                      )}>
-                        <Icon className={cn("h-12 w-12", tool.iconColor)} />
-                      </div>
+                {/* Background gradient */}
+                <div className={cn(
+                  "absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300",
+                  tool.bgGradient,
+                  isAvailable && "group-hover:opacity-100"
+                )} />
+                
+                <div className="relative z-10">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br",
+                      tool.gradient
+                    )}>
+                      <Icon className="w-6 h-6 text-white" />
                     </div>
                     
-                    {/* Content */}
-                    <div className="space-y-3">
-                      <h2 className={cn(
-                        "text-2xl font-bold transition-colors duration-300 text-foreground",
-                        isAvailable && "group-hover:text-primary"
-                      )}>
-                        {tool.title}
-                      </h2>
-                      <p className="text-muted-foreground text-base leading-relaxed">
-                        {tool.description}
-                      </p>
-                    </div>
-                    
-                    {/* Status Badge */}
-                    <div className="flex justify-center">
-                      <span className={cn(
-                        "px-3 py-1 rounded-full text-xs font-medium border",
-                        isAvailable 
-                          ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20" 
-                          : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
-                      )}>
-                        {isAvailable ? "Disponível" : "Em Breve"}
-                      </span>
-                    </div>
-                    
-                    {/* Button */}
-                    <div className="pt-4">
-                      <GlassButton
-                        variant={isAvailable ? "default" : "outline"}
-                        size="lg"
-                        className={cn(
-                          "w-full transition-all duration-300",
-                          !isAvailable && "cursor-not-allowed"
-                        )}
-                        disabled={!isAvailable}
-                      >
-                        {isAvailable ? `Acessar ${tool.title}` : "Em Desenvolvimento"}
-                      </GlassButton>
-                    </div>
+                    <span className={cn(
+                      "px-2.5 py-1 rounded-full text-xs font-medium",
+                      isAvailable 
+                        ? "bg-success/10 text-success" 
+                        : "bg-warning/10 text-warning"
+                    )}>
+                      {isAvailable ? "Disponível" : "Em Breve"}
+                    </span>
                   </div>
-                </GlassCard>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <motion.div
-          className="text-center mt-16"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 1.2 }}
-        >
-          <p className="text-muted-foreground text-sm">
-            Sistema de Gerenciamento Integrado - Versão 2.0
-          </p>
-        </motion.div>
+                  
+                  {/* Content */}
+                  <h3 className="text-xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+                    {tool.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                    {tool.description}
+                  </p>
+                  
+                  {/* Action */}
+                  <Button
+                    variant={isAvailable ? "default" : "secondary"}
+                    className="w-full"
+                    disabled={!isAvailable}
+                  >
+                    {isAvailable ? (
+                      <>
+                        Acessar
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    ) : (
+                      "Em Desenvolvimento"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
-    </div>
+
+      {/* Footer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        className="text-center mt-12"
+      >
+        <p className="text-muted-foreground text-sm">
+          Sistema de Gerenciamento Integrado — Versão 2.0
+        </p>
+      </motion.div>
+    </AppLayout>
   );
 };
 
