@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -228,8 +228,8 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     setSelectedEpisodes(prev => prev.filter(e => e.season !== selectedSeason));
   };
 
-  // Calculate pricing
-  const calculatePrice = () => {
+  // Calculate pricing using useMemo to avoid re-render loops
+  const pricing = useMemo(() => {
     if (!selectedContent || !profile) return { base: 0, priority: 0, total: 0 };
     
     let basePrice = 0;
@@ -246,14 +246,6 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         !paidEps.some(p => p.season === sel.season && p.episode === sel.episode)
       );
       
-      // Episodes that need priority only
-      const priorityOnly = selectedEpisodes.filter(sel =>
-        paidEps.some(p => p.season === sel.season && p.episode === sel.episode && !p.isPriority)
-      );
-      
-      setAlreadyPaidEpisodes(unpaidSelected);
-      setPriorityOnlyEpisodes(priorityOnly);
-      
       basePrice = unpaidSelected.length * (profile.episodePrice || 0);
     }
     
@@ -264,9 +256,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       priority: priorityPrice,
       total: basePrice + priorityPrice
     };
-  };
-
-  const pricing = calculatePrice();
+  }, [selectedContent, profile, contentDetails, existingContent, selectedEpisodes, wantsPriority]);
 
   const handleContinueToSummary = () => {
     if (selectedContent?.media_type === 'tv' && selectedEpisodes.length === 0) {
