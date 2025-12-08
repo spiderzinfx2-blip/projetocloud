@@ -476,13 +476,30 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         clone.style.top = '0';
         clone.style.background = '#1a1a2e';
         clone.style.width = summaryRef.current.offsetWidth + 'px';
+        clone.style.overflow = 'visible';
+        clone.style.padding = '24px';
         document.body.appendChild(clone);
+        
+        // Fix text truncation in cloned elements
+        const truncatedTexts = clone.querySelectorAll('.truncate');
+        truncatedTexts.forEach((el) => {
+          (el as HTMLElement).style.overflow = 'visible';
+          (el as HTMLElement).style.textOverflow = 'clip';
+          (el as HTMLElement).style.whiteSpace = 'normal';
+          (el as HTMLElement).style.wordBreak = 'break-word';
+        });
+        
+        // Ensure all containers have overflow visible
+        const allContainers = clone.querySelectorAll('div');
+        allContainers.forEach((el) => {
+          (el as HTMLElement).style.overflow = 'visible';
+        });
         
         // Convert all TMDB images to base64 using CORS proxy
         await convertAllImagesToBase64(clone);
         
         // Small delay to ensure images are loaded
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         const canvas = await html2canvas(clone, {
           backgroundColor: '#1a1a2e',

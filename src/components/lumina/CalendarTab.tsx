@@ -233,13 +233,29 @@ export function CalendarTab() {
         clone.style.top = '0';
         clone.style.background = design.backgroundColor;
         clone.style.width = calendarRef.current.offsetWidth + 'px';
+        clone.style.overflow = 'visible';
         document.body.appendChild(clone);
+        
+        // Fix text truncation in cloned elements
+        const truncatedTexts = clone.querySelectorAll('.truncate');
+        truncatedTexts.forEach((el) => {
+          (el as HTMLElement).style.overflow = 'visible';
+          (el as HTMLElement).style.textOverflow = 'clip';
+          (el as HTMLElement).style.whiteSpace = 'normal';
+          (el as HTMLElement).style.wordBreak = 'break-word';
+        });
+        
+        // Ensure all cells have overflow visible
+        const allCells = clone.querySelectorAll('[class*="border"]');
+        allCells.forEach((el) => {
+          (el as HTMLElement).style.overflow = 'visible';
+        });
         
         // Convert all TMDB images to base64 using CORS proxy
         await convertAllImagesToBase64(clone);
         
         // Small delay to ensure images are loaded
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         const canvas = await html2canvas(clone, {
           backgroundColor: design.backgroundColor,
