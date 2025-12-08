@@ -83,6 +83,7 @@ export function ContentOrganizerTab() {
   const [addingContent, setAddingContent] = useState<any | null>(null);
   const [addContentPriority, setAddContentPriority] = useState<number>(1);
   const [addContentSponsor, setAddContentSponsor] = useState<string>('');
+  const [addContentPaid, setAddContentPaid] = useState(false);
   const [loadingAddSeasons, setLoadingAddSeasons] = useState(false);
   const [addContentSeasons, setAddContentSeasons] = useState<any[]>([]);
   const [addContentEpisodes, setAddContentEpisodes] = useState<any[]>([]);
@@ -129,6 +130,7 @@ export function ContentOrganizerTab() {
     setAddingContent(item);
     setAddContentPriority(1);
     setAddContentSponsor('');
+    setAddContentPaid(false);
     setAddSponsoredEpisodes([]);
     setAddContentSeasons([]);
     setAddContentEpisodes([]);
@@ -245,7 +247,7 @@ export function ContentOrganizerTab() {
       addedDate: new Date().toISOString(),
       priority: addContentPriority,
       isWatched: false,
-      isPaidAdvanced: !!addContentSponsor,
+      isPaidAdvanced: addContentPaid || !!addContentSponsor,
       sponsorName: addContentSponsor || undefined,
       sponsoredEpisodes: addSponsoredEpisodes,
       seasons: addContentSeasons.length > 0 ? addContentSeasons : undefined
@@ -594,6 +596,50 @@ export function ContentOrganizerTab() {
                 </div>
               </div>
 
+              {/* For movies: show paid/priority checkboxes */}
+              {selectedContent.media_type === 'movie' && (
+                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Film className="w-4 h-4" />
+                    Status do Filme
+                  </h4>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={selectedContent.isPaidAdvanced || false}
+                        onCheckedChange={(c) => {
+                          const updatedContent = { ...selectedContent, isPaidAdvanced: !!c };
+                          setSelectedContent(updatedContent);
+                          saveContent(content.map(item => item.id === selectedContent.id ? updatedContent : item));
+                        }}
+                      />
+                      <span className={cn(selectedContent.isPaidAdvanced && "text-success font-medium")}>
+                        <DollarSign className="w-3 h-3 inline mr-1" />
+                        Pago
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={(selectedContent.priority || 1) >= 4}
+                        onCheckedChange={(c) => {
+                          const newPriority = c ? 4 : 1;
+                          const updatedContent = { ...selectedContent, priority: newPriority };
+                          setSelectedContent(updatedContent);
+                          saveContent(content.map(item => item.id === selectedContent.id ? updatedContent : item));
+                        }}
+                      />
+                      <span className={cn((selectedContent.priority || 1) >= 4 && "text-warning font-medium")}>
+                        <Star className="w-3 h-3 inline mr-1" />
+                        Prioridade
+                      </span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Marque se o filme já está pago e/ou tem prioridade
+                  </p>
+                </div>
+              )}
+
               {/* Episodes for TV Shows */}
               {selectedContent.media_type === 'tv' && selectedContent.seasons && (
                 <div className="space-y-4">
@@ -779,20 +825,17 @@ export function ContentOrganizerTab() {
                     Status do Filme
                   </h4>
                   <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
                       <Checkbox 
-                        checked={!!addContentSponsor}
-                        onCheckedChange={(c) => {
-                          if (!c) setAddContentSponsor('');
-                        }}
-                        disabled={!!addContentSponsor}
+                        checked={addContentPaid}
+                        onCheckedChange={(c) => setAddContentPaid(!!c)}
                       />
-                      <span className={cn(addContentSponsor && "text-success font-medium")}>
+                      <span className={cn(addContentPaid && "text-success font-medium")}>
                         <DollarSign className="w-3 h-3 inline mr-1" />
                         Pago
                       </span>
                     </label>
-                    <label className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
                       <Checkbox 
                         checked={addContentPriority >= 4}
                         onCheckedChange={(c) => setAddContentPriority(c ? 4 : 1)}

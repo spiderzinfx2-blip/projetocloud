@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { GlobalNotificationSound } from "@/components/GlobalNotificationSound";
+import { useEffect, useState } from "react";
 
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -16,6 +18,24 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Wrapper to get creator username for global notifications
+function GlobalNotificationWrapper() {
+  const { user } = useAuth();
+  const [creatorUsername, setCreatorUsername] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (user) {
+      const savedProfile = localStorage.getItem('creator-profile');
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        setCreatorUsername(profile.username);
+      }
+    }
+  }, [user]);
+
+  return <GlobalNotificationSound username={creatorUsername} />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -23,6 +43,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <GlobalNotificationWrapper />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
