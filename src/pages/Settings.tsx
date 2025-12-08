@@ -376,72 +376,6 @@ export default function Settings() {
                 </Button>
               </div>
             </div>
-
-            {/* Notification Sound Settings */}
-            <div className="bg-card rounded-xl border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Som de Notificações</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Configure o alerta sonoro para novos pedidos de patrocínio
-              </p>
-              
-              {/* Sound Type Selector */}
-              <div className="space-y-4 mb-6">
-                <Label>Tipo de Som</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {notificationSoundService.getSoundTypes().map((sound) => (
-                    <button
-                      key={sound.id}
-                      onClick={() => handleSoundTypeChange(sound.id)}
-                      className={cn(
-                        "flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
-                        notificationSoundType === sound.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/30"
-                      )}
-                    >
-                      <Volume2 className="w-4 h-4" />
-                      {sound.name}
-                      {notificationSoundType === sound.id && <Check className="w-4 h-4 text-primary" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Volume Slider */}
-              <div className="space-y-4">
-                <Label>Volume</Label>
-                <div className="flex items-center gap-4">
-                  <VolumeX className="w-5 h-5 text-muted-foreground" />
-                  <Slider
-                    value={[notificationVolume]}
-                    onValueChange={handleVolumeChange}
-                    max={100}
-                    step={5}
-                    className="flex-1"
-                  />
-                  <Volume2 className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm font-medium w-12 text-right">{notificationVolume}%</span>
-                </div>
-                
-                {notificationVolume === 0 && (
-                  <p className="text-xs text-warning flex items-center gap-1">
-                    <VolumeX className="w-3 h-3" />
-                    Som de notificações desativado
-                  </p>
-                )}
-              </div>
-              
-              {/* Test Button */}
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={handleTestSound}
-                disabled={notificationVolume === 0}
-              >
-                <Play className="w-4 h-4 mr-2" />
-                Testar Som
-              </Button>
-            </div>
           </div>
         )}
 
@@ -507,6 +441,72 @@ export default function Settings() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Notification Sound Settings */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Som de Notificações</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configure o alerta sonoro para novos pedidos de patrocínio
+              </p>
+              
+              {/* Sound Type Selector */}
+              <div className="space-y-4 mb-6">
+                <Label>Tipo de Som</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {notificationSoundService.getSoundTypes().map((sound) => (
+                    <button
+                      key={sound.id}
+                      onClick={() => handleSoundTypeChange(sound.id)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
+                        notificationSoundType === sound.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      {sound.name}
+                      {notificationSoundType === sound.id && <Check className="w-4 h-4 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Volume Slider */}
+              <div className="space-y-4">
+                <Label>Volume</Label>
+                <div className="flex items-center gap-4">
+                  <VolumeX className="w-5 h-5 text-muted-foreground" />
+                  <Slider
+                    value={[notificationVolume]}
+                    onValueChange={handleVolumeChange}
+                    max={100}
+                    step={5}
+                    className="flex-1"
+                  />
+                  <Volume2 className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-medium w-12 text-right">{notificationVolume}%</span>
+                </div>
+                
+                {notificationVolume === 0 && (
+                  <p className="text-xs text-warning flex items-center gap-1">
+                    <VolumeX className="w-3 h-3" />
+                    Som de notificações desativado
+                  </p>
+                )}
+              </div>
+              
+              {/* Test Button */}
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={handleTestSound}
+                disabled={notificationVolume === 0}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Testar Som
+              </Button>
             </div>
           </div>
         )}
