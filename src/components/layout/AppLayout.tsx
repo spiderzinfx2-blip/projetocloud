@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Settings, Clapperboard, Heart, 
-  Menu, X, LogOut, ChevronRight, Sparkles
+  Menu, X, LogOut, ChevronRight, Sparkles, Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +21,7 @@ const navigation = [
   { name: 'Gerenciamento', href: '/gerenciamento', icon: Settings },
   { name: 'Lumina Creators', href: '/cinefy', icon: Clapperboard },
   { name: 'Patrocínios', href: '/patrocinio', icon: Heart },
+  { name: 'Configurações', href: '/configuracoes', icon: Settings2 },
 ];
 
 export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
