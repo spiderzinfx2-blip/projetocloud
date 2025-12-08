@@ -61,6 +61,12 @@ interface CreatorProfile {
     twitter?: string;
     tiktok?: string;
   };
+  contactMethods: {
+    platform: string;
+    value: string;
+    isPrimary: boolean;
+  }[];
+  paymentInfo: string;
   isPublic: boolean;
 }
 
