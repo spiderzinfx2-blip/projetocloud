@@ -7,8 +7,11 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background bg-mesh">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-primary animate-pulse" />
+          <p className="text-muted-foreground animate-pulse">Carregando...</p>
+        </div>
       </div>
     );
   }
