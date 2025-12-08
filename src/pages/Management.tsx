@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Briefcase, DollarSign, FileText, BookOpen, Kanban, Plus, Edit2, Trash2 } from 'lucide-react';
+import { BarChart3, Users, Briefcase, DollarSign, FileText, BookOpen, Kanban, Plus, Edit2, Trash2, Eye } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth, UserData, saveUserData, loadUserData, Cliente, Servico, Trabalho } from '@/hooks/useAuth';
@@ -11,6 +11,9 @@ import { ServicoModal } from '@/components/management/ServicoModal';
 import { TrabalhoModal } from '@/components/management/TrabalhoModal';
 import { NotasTab } from '@/components/management/NotasTab';
 import { KanbanTab } from '@/components/management/KanbanTab';
+import { ClienteDetails } from '@/components/management/ClienteDetails';
+import { TrabalhoDetails } from '@/components/management/TrabalhoDetails';
+import { FaturamentoTab } from '@/components/management/FaturamentoTab';
 import { toast } from '@/hooks/use-toast';
 
 // Stats Card Component
@@ -80,12 +83,14 @@ const ClientesTab = ({
   clientes, 
   onAdd, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onView
 }: { 
   clientes: Cliente[];
   onAdd: () => void;
   onEdit: (cliente: Cliente) => void;
   onDelete: (id: string) => void;
+  onView?: (cliente: Cliente) => void;
 }) => (
   <div className="bg-card rounded-xl border border-border overflow-hidden">
     <div className="flex items-center justify-between p-5 border-b border-border">
@@ -100,18 +105,24 @@ const ClientesTab = ({
       <div className="divide-y divide-border">
         {clientes.map((cliente) => (
           <div key={cliente.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-            <div className="flex items-center gap-3">
+            <div 
+              className="flex items-center gap-3 cursor-pointer flex-1"
+              onClick={() => onView?.(cliente)}
+            >
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-sm font-semibold text-primary">
                   {cliente.nome.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="font-medium text-foreground">{cliente.nome}</p>
+                <p className="font-medium text-foreground hover:text-primary transition-colors">{cliente.nome}</p>
                 <p className="text-sm text-muted-foreground">{cliente.email || cliente.telefone || 'Sem contato'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView?.(cliente)}>
+                <Eye className="w-4 h-4" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(cliente)}>
                 <Edit2 className="w-4 h-4" />
               </Button>
@@ -259,66 +270,6 @@ const TrabalhosTab = ({
   </div>
 );
 
-// Faturamento Tab
-const FaturamentoTab = ({ trabalhos }: { trabalhos: Trabalho[] }) => {
-  const recebido = trabalhos.reduce((sum, t) => {
-    if (t.status === 'recebido') return sum + t.valor;
-    if (t.status === '50%') return sum + (t.valor * 0.5);
-    return sum;
-  }, 0);
-  
-  const pendente = trabalhos.reduce((sum, t) => {
-    if (t.status === 'pendente') return sum + t.valor;
-    if (t.status === '50%') return sum + (t.valor * 0.5);
-    return sum;
-  }, 0);
-
-  const cancelado = trabalhos.reduce((sum, t) => {
-    if (t.status === 'cancelado') return sum + t.valor;
-    return sum;
-  }, 0);
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-            <DollarSign className="w-5 h-5 text-success" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Total Recebido</h3>
-        </div>
-        <p className="text-3xl font-bold text-success">
-          R$ {recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-      
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-            <DollarSign className="w-5 h-5 text-warning" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Pendente</h3>
-        </div>
-        <p className="text-3xl font-bold text-warning">
-          R$ {pendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-            <DollarSign className="w-5 h-5 text-destructive" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Cancelado</h3>
-        </div>
-        <p className="text-3xl font-bold text-destructive">
-          R$ {cancelado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-    </div>
-  );
-};
-
 // Main Component
 export default function Management() {
   const { user } = useAuth();
@@ -332,6 +283,10 @@ export default function Management() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [editingServico, setEditingServico] = useState<Servico | null>(null);
   const [editingTrabalho, setEditingTrabalho] = useState<Trabalho | null>(null);
+  const [clienteDetailsOpen, setClienteDetailsOpen] = useState(false);
+  const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
+  const [trabalhoDetailsOpen, setTrabalhoDetailsOpen] = useState(false);
+  const [viewingTrabalho, setViewingTrabalho] = useState<Trabalho | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -505,6 +460,7 @@ export default function Management() {
             onAdd={() => { setEditingCliente(null); setClienteModalOpen(true); }}
             onEdit={(cliente) => { setEditingCliente(cliente); setClienteModalOpen(true); }}
             onDelete={handleDeleteCliente}
+            onView={(cliente) => { setViewingCliente(cliente); setClienteDetailsOpen(true); }}
           />
         )}
         {activeTab === 'servicos' && (
@@ -525,7 +481,13 @@ export default function Management() {
             onDelete={handleDeleteTrabalho}
           />
         )}
-        {activeTab === 'faturamento' && <FaturamentoTab trabalhos={userData.trabalhos || []} />}
+        {activeTab === 'faturamento' && (
+          <FaturamentoTab 
+            trabalhos={userData.trabalhos || []} 
+            clientes={userData.clientes || []}
+            servicos={userData.servicos || []}
+          />
+        )}
         {activeTab === 'notas' && (
           <NotasTab 
             notas={userData.notionPages || []} 
