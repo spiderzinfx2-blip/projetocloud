@@ -18,6 +18,7 @@ import { tmdbService } from '@/services/tmdbService';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import html2canvas from 'html2canvas';
+import { convertAllImagesToBase64 } from '@/utils/imageToBase64';
 
 interface SponsorModalProps {
   open: boolean;
@@ -466,34 +467,22 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
   const handleExportPNG = async () => {
     if (summaryRef.current) {
       try {
-        // Clone the element to replace images with base64 versions
+        toast({ title: 'Preparando imagem...' });
+        
+        // Clone the element to manipulate without affecting the original
         const clone = summaryRef.current.cloneNode(true) as HTMLElement;
         clone.style.position = 'absolute';
         clone.style.left = '-9999px';
+        clone.style.top = '0';
         clone.style.background = '#1a1a2e';
+        clone.style.width = summaryRef.current.offsetWidth + 'px';
         document.body.appendChild(clone);
         
-        // Convert all images to base64
-        const images = clone.querySelectorAll('img');
-        await Promise.all(
-          Array.from(images).map(async (img) => {
-            try {
-              const response = await fetch(img.src);
-              const blob = await response.blob();
-              return new Promise<void>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  img.src = reader.result as string;
-                  resolve();
-                };
-                reader.readAsDataURL(blob);
-              });
-            } catch {
-              // If fetch fails, remove the image
-              img.style.display = 'none';
-            }
-          })
-        );
+        // Convert all TMDB images to base64 using CORS proxy
+        await convertAllImagesToBase64(clone);
+        
+        // Small delay to ensure images are loaded
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         const canvas = await html2canvas(clone, {
           backgroundColor: '#1a1a2e',
