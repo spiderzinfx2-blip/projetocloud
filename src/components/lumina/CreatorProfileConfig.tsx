@@ -68,7 +68,18 @@ const contactPlatforms = [
 ];
 
 export function CreatorProfileConfig({ profile, onSave }: CreatorProfileConfigProps) {
-  const [formData, setFormData] = useState<CreatorProfile>(profile || defaultProfile);
+  const [formData, setFormData] = useState<CreatorProfile>(() => {
+    if (profile) {
+      return {
+        ...defaultProfile,
+        ...profile,
+        contactMethods: profile.contactMethods || [],
+        socialLinks: profile.socialLinks || {},
+        specialties: profile.specialties || []
+      };
+    }
+    return defaultProfile;
+  });
   const [newSpecialty, setNewSpecialty] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -77,7 +88,9 @@ export function CreatorProfileConfig({ profile, onSave }: CreatorProfileConfigPr
       setFormData({
         ...defaultProfile,
         ...profile,
-        contactMethods: profile.contactMethods || []
+        contactMethods: profile.contactMethods || [],
+        socialLinks: profile.socialLinks || {},
+        specialties: profile.specialties || []
       });
     }
   }, [profile]);

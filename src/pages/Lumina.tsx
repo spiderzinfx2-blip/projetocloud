@@ -8,13 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   BarChart3, Calendar, DollarSign, Film, 
-  Search, Plus, ExternalLink, Trash2, Star, Check, X, Loader2, Clapperboard, Settings, User
+  Search, Plus, ExternalLink, Trash2, Star, Check, X, Loader2, Clapperboard, Settings, User, Package
 } from 'lucide-react';
 import { tmdbService } from '@/services/tmdbService';
 import { cn } from '@/lib/utils';
 import { CreatorProfileConfig } from '@/components/lumina/CreatorProfileConfig';
 import { CalendarTab } from '@/components/lumina/CalendarTab';
 import { ContentOrganizerTab } from '@/components/lumina/ContentOrganizerTab';
+import { OrdersTab } from '@/components/lumina/OrdersTab';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ContentItem {
@@ -93,7 +94,7 @@ const StatCard = ({ icon: Icon, label, value, gradient }: {
 export default function Lumina() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sponsorship' | 'organizer' | 'calendar' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sponsorship' | 'orders' | 'organizer' | 'calendar' | 'profile'>('dashboard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Search state
@@ -210,6 +211,7 @@ export default function Lumina() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'sponsorship', label: 'Patrocínio', icon: DollarSign },
+    { id: 'orders', label: 'Pedidos', icon: Package },
     { id: 'organizer', label: 'Organizador', icon: Film },
     { id: 'calendar', label: 'Calendário', icon: Calendar },
     { id: 'profile', label: 'Meu Perfil', icon: User },
@@ -379,6 +381,9 @@ export default function Lumina() {
           )}
         </motion.div>
       )}
+
+      {/* Orders Tab */}
+      {activeTab === 'orders' && <OrdersTab />}
 
       {/* Organizer Tab */}
       {activeTab === 'organizer' && <ContentOrganizerTab />}

@@ -354,7 +354,7 @@ export function CalendarTab() {
         {/* Calendar Days */}
         <div className={cn(
           "grid grid-cols-7",
-          viewMode === 'monthly' ? "min-h-[500px]" : "min-h-[200px]"
+          viewMode === 'monthly' ? "min-h-[600px]" : "min-h-[300px]"
         )}>
           {days.map((day, index) => {
             const dayEvents = getEventsForDay(day);
@@ -365,9 +365,10 @@ export function CalendarTab() {
               <div
                 key={day.toISOString()}
                 onClick={() => handleNewEvent(day)}
-                className={cn(
-                  "border-r border-b border-border p-2 min-h-[100px] cursor-pointer transition-colors hover:bg-muted/30",
-                  !isCurrentMonth && viewMode === 'monthly' && "opacity-40",
+              className={cn(
+                "border-r border-b border-border p-2 cursor-pointer transition-colors hover:bg-muted/30",
+                viewMode === 'monthly' ? "min-h-[140px]" : "min-h-[180px]",
+                !isCurrentMonth && viewMode === 'monthly' && "opacity-40",
                   !design.showWeekends && isWeekend && "opacity-50",
                   isToday(day) && "bg-primary/5"
                 )}
@@ -381,31 +382,30 @@ export function CalendarTab() {
                   </span>
                 </div>
                 
-                <div className="space-y-1">
-                  {dayEvents.slice(0, viewMode === 'weekly' ? 5 : 3).map((event) => {
+                <div className="space-y-2">
+                  {dayEvents.slice(0, viewMode === 'weekly' ? 3 : 2).map((event) => {
                     const typeInfo = eventTypes.find(t => t.value === event.type);
                     
-                    // If event has content poster, show it prominently
+                    // If event has content poster, show it prominently in a square
                     if (event.contentPoster) {
                       return (
                         <button
                           key={event.id}
                           onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
-                          className="w-full text-left rounded overflow-hidden group"
+                          className="w-full text-left rounded-lg overflow-hidden group hover:ring-2 hover:ring-primary/50 transition-all"
                         >
-                          <div className="relative">
+                          <div className="relative aspect-square w-full max-w-[120px] mx-auto">
                             <img 
                               src={tmdbService.getImageUrl(event.contentPoster, 'w342')}
                               alt={event.contentTitle}
-                              className="w-full h-16 object-cover rounded"
+                              className="absolute inset-0 w-full h-full object-cover rounded-lg"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                            <div className="absolute bottom-0 left-0 right-0 p-1">
-                              <p className="text-[10px] text-white font-medium truncate leading-tight">
-                                {event.time && <span className="opacity-80">{event.time} </span>}
-                                {event.title}
-                              </p>
-                            </div>
+                          </div>
+                          <div className="mt-1 px-1">
+                            <p className="text-xs text-foreground font-semibold truncate leading-tight">
+                              {event.time && <span className="text-muted-foreground">{event.time} </span>}
+                              {event.title}
+                            </p>
                           </div>
                         </button>
                       );
@@ -416,11 +416,11 @@ export function CalendarTab() {
                         key={event.id}
                         onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
                         className={cn(
-                          "w-full text-left text-xs p-1 rounded",
+                          "w-full text-left text-xs p-2 rounded-lg",
                           typeInfo?.color || 'bg-primary'
                         )}
                       >
-                        <span className="text-white truncate block font-medium">
+                        <span className="text-white truncate block font-semibold">
                           {event.time && <span className="opacity-80">{event.time} </span>}
                           {event.title}
                         </span>
