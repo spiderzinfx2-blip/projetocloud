@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Settings as SettingsIcon, User, Palette, Download, Building2, 
   Save, Check, Moon, Sun, Monitor, Upload, Trash2, FileJson, FileSpreadsheet,
-  Volume2, VolumeX, Play
+  Volume2, VolumeX, Play, Users
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from '@/hooks/use-toast';
 import { notificationSoundService, SoundType } from '@/services/notificationSoundService';
+import { TeamManagement } from '@/components/team/TeamManagement';
 
 const themeColors = [
   { id: 'blue', name: 'Azul', primary: '217 91% 60%', accent: '199 89% 48%' },
@@ -31,7 +32,7 @@ const themeColors = [
 export default function Settings() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'perfil' | 'empresa' | 'aparencia' | 'dados'>('perfil');
+  const [activeTab, setActiveTab] = useState<'geral' | 'perfil' | 'empresa' | 'aparencia' | 'dados'>('geral');
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedColor, setSelectedColor] = useState('blue');
   const [notificationVolume, setNotificationVolume] = useState(50);
@@ -233,6 +234,7 @@ export default function Settings() {
   }
 
   const tabs = [
+    { id: 'geral', label: 'Geral', icon: Users },
     { id: 'perfil', label: 'Perfil', icon: User },
     { id: 'empresa', label: 'Empresa', icon: Building2 },
     { id: 'aparencia', label: 'Aparência', icon: Palette },
@@ -271,6 +273,13 @@ export default function Settings() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
       >
+        {/* Geral Tab */}
+        {activeTab === 'geral' && (
+          <div className="max-w-2xl space-y-6">
+            <TeamManagement />
+          </div>
+        )}
+
         {/* Perfil Tab */}
         {activeTab === 'perfil' && (
           <div className="max-w-2xl space-y-6">
