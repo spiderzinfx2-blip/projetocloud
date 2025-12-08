@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Heart, Film, Tv, Star, DollarSign, Send, Check, Search, 
   Loader2, ChevronRight, ChevronLeft, Download, AlertTriangle,
-  Clock, Info
+  Clock, Info, Copy, User, MessageCircle, Ban
 } from 'lucide-react';
 import { UserProfile } from '@/services/profilesApiService';
 import { tmdbService } from '@/services/tmdbService';
@@ -63,8 +64,34 @@ interface ExistingContent {
   episodes?: { season: number; episode: number; isPaid: boolean; isPriority: boolean }[];
 }
 
+interface BuyerInfo {
+  name: string;
+  contactPlatform: string;
+  contactValue: string;
+  email: string;
+}
+
+const contactPlatforms = [
+  { value: 'discord', label: 'Discord' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'twitter', label: 'Twitter/X' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'email', label: 'Email' },
+];
+
+// Generate unique order code
+const generateOrderCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
 export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps) {
-  // Steps: 1=search, 2=select episodes (if tv), 3=priority check, 4=summary, 5=final
+  // Steps: 1=search, 2=select episodes (if tv), 3=priority check, 4=buyer info, 5=summary, 6=final
   const [step, setStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBContent[]>([]);
@@ -82,12 +109,20 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
   // Priority and existing content check
   const [wantsPriority, setWantsPriority] = useState(false);
   const [existingContent, setExistingContent] = useState<ExistingContent | null>(null);
-  const [alreadyPaidEpisodes, setAlreadyPaidEpisodes] = useState<SelectedEpisode[]>([]);
-  const [priorityOnlyEpisodes, setPriorityOnlyEpisodes] = useState<SelectedEpisode[]>([]);
+  const [isBlocked, setIsBlocked] = useState(false);
+  
+  // Buyer info
+  const [buyerInfo, setBuyerInfo] = useState<BuyerInfo>({
+    name: '',
+    contactPlatform: 'discord',
+    contactValue: '',
+    email: ''
+  });
   
   // Message and final
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [orderCode, setOrderCode] = useState('');
   const summaryRef = useRef<HTMLDivElement>(null);
 
   // Reset on close
@@ -109,10 +144,11 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     setSelectedEpisodes([]);
     setWantsPriority(false);
     setExistingContent(null);
-    setAlreadyPaidEpisodes([]);
-    setPriorityOnlyEpisodes([]);
+    setIsBlocked(false);
+    setBuyerInfo({ name: '', contactPlatform: 'discord', contactValue: '', email: '' });
     setMessage('');
     setSubmitted(false);
+    setOrderCode('');
   };
 
   const handleSearch = async () => {
@@ -139,7 +175,10 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     if (content.media_type === 'movie') {
       const details = await tmdbService.getMovieDetails(content.id);
       setContentDetails(details);
-      checkExistingContent(content.id, 'movie');
+      const blocked = checkExistingContent(content.id, 'movie');
+      if (blocked) {
+        setIsBlocked(true);
+      }
       setStep(3); // Go to priority check
     } else {
       const details = await tmdbService.getTVDetails(content.id);
@@ -152,21 +191,29 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     }
   };
 
-  const checkExistingContent = (contentId: number, type: 'movie' | 'tv') => {
+  const checkExistingContent = (contentId: number, type: 'movie' | 'tv'): boolean => {
     // Check organizer content for existing sponsorships
     const organizerContent = JSON.parse(localStorage.getItem('organizer-content') || '[]');
     const found = organizerContent.find((c: any) => c.id === contentId);
     
     if (found) {
-      setExistingContent({
+      const existing = {
         id: found.id,
         isPaid: found.isPaidAdvanced || false,
         isPriority: found.priority >= 3,
         episodes: found.sponsoredEpisodes || []
-      });
+      };
+      setExistingContent(existing);
+      
+      // Block if both paid and priority
+      if (existing.isPaid && existing.isPriority) {
+        return true;
+      }
     } else {
       setExistingContent(null);
     }
+    
+    return false;
   };
 
   const loadSeasonEpisodes = async (seasonNumber: number) => {
@@ -193,6 +240,20 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
   }, [step, seasons]);
 
   const toggleEpisode = (episode: Episode) => {
+    // Check if episode is blocked (paid + priority)
+    const epStatus = existingContent?.episodes?.find(
+      e => e.season === episode.season_number && e.episode === episode.episode_number
+    );
+    
+    if (epStatus?.isPaid && epStatus?.isPriority) {
+      toast({ 
+        title: 'Episódio bloqueado', 
+        description: 'Este episódio já está pago e com prioridade.',
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     const exists = selectedEpisodes.find(
       e => e.season === episode.season_number && e.episode === episode.episode_number
     );
@@ -212,12 +273,19 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
   };
 
   const selectAllEpisodes = () => {
-    const allEps = episodes.map(ep => ({
-      season: ep.season_number,
-      episode: ep.episode_number,
-      name: ep.name,
-      id: ep.id
-    }));
+    const allEps = episodes
+      .filter(ep => {
+        const epStatus = existingContent?.episodes?.find(
+          e => e.season === ep.season_number && e.episode === ep.episode_number
+        );
+        return !(epStatus?.isPaid && epStatus?.isPriority);
+      })
+      .map(ep => ({
+        season: ep.season_number,
+        episode: ep.episode_number,
+        name: ep.name,
+        id: ep.id
+      }));
     
     // Merge with existing from other seasons
     const otherSeasons = selectedEpisodes.filter(e => e.season !== selectedSeason);
@@ -235,10 +303,15 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     let basePrice = 0;
     
     if (selectedContent.media_type === 'movie') {
-      const runtime = contentDetails?.runtime || 90;
-      basePrice = runtime > 120 
-        ? (profile.moviePriceLong || 0) 
-        : (profile.moviePriceShort || 0);
+      // If already paid, only charge priority if applicable
+      if (existingContent?.isPaid) {
+        basePrice = 0;
+      } else {
+        const runtime = contentDetails?.runtime || 90;
+        basePrice = runtime > 120 
+          ? (profile.moviePriceLong || 0) 
+          : (profile.moviePriceShort || 0);
+      }
     } else {
       // For TV, count episodes minus already paid ones
       const paidEps = existingContent?.episodes?.filter(e => e.isPaid) || [];
@@ -258,26 +331,54 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     };
   }, [selectedContent, profile, contentDetails, existingContent, selectedEpisodes, wantsPriority]);
 
+  const validateBuyerInfo = (): boolean => {
+    if (!buyerInfo.name.trim()) {
+      toast({ title: 'Preencha seu nome', variant: 'destructive' });
+      return false;
+    }
+    if (!buyerInfo.contactValue.trim()) {
+      toast({ title: 'Preencha seu contato', variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
   const handleContinueToSummary = () => {
     if (selectedContent?.media_type === 'tv' && selectedEpisodes.length === 0) {
       toast({ title: 'Selecione pelo menos um episódio', variant: 'destructive' });
       return;
     }
-    setStep(4);
+    if (!validateBuyerInfo()) return;
+    setStep(5);
   };
 
   const handleSubmit = () => {
+    const code = generateOrderCode();
+    setOrderCode(code);
+    
+    // Group episodes by season for display
+    const episodesBySeason: { [key: number]: SelectedEpisode[] } = {};
+    selectedEpisodes.forEach(ep => {
+      if (!episodesBySeason[ep.season]) {
+        episodesBySeason[ep.season] = [];
+      }
+      episodesBySeason[ep.season].push(ep);
+    });
+    
     // Save sponsorship request
     const request = {
       id: Date.now().toString(),
+      orderCode: code,
       creatorId: profile.id,
       creatorUsername: profile.username,
       creatorName: profile.name,
+      buyerInfo: buyerInfo,
       contentId: selectedContent?.id,
       contentTitle: selectedContent?.title || selectedContent?.name,
       contentType: selectedContent?.media_type,
       contentPoster: selectedContent?.poster_path,
       episodes: selectedContent?.media_type === 'tv' ? selectedEpisodes : undefined,
+      episodesBySeason: selectedContent?.media_type === 'tv' ? episodesBySeason : undefined,
       priority: wantsPriority,
       message,
       basePrice: pricing.base,
@@ -287,11 +388,30 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       createdAt: new Date().toISOString()
     };
 
-    const existing = JSON.parse(localStorage.getItem('sponsorship_requests') || '[]');
-    existing.push(request);
-    localStorage.setItem('sponsorship_requests', JSON.stringify(existing));
+    // Save to sponsorship requests (for buyer)
+    const existingRequests = JSON.parse(localStorage.getItem('sponsorship_requests') || '[]');
+    existingRequests.push(request);
+    localStorage.setItem('sponsorship_requests', JSON.stringify(existingRequests));
 
-    setStep(5);
+    // Save to creator's order panel
+    const creatorOrders = JSON.parse(localStorage.getItem(`creator_orders_${profile.username}`) || '[]');
+    creatorOrders.unshift(request);
+    localStorage.setItem(`creator_orders_${profile.username}`, JSON.stringify(creatorOrders));
+
+    // Trigger notification for creator (simulated)
+    const notifications = JSON.parse(localStorage.getItem(`creator_notifications_${profile.username}`) || '[]');
+    notifications.unshift({
+      id: Date.now().toString(),
+      type: 'new_order',
+      orderCode: code,
+      message: `Novo pedido de patrocínio: ${selectedContent?.title || selectedContent?.name}`,
+      buyerName: buyerInfo.name,
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    localStorage.setItem(`creator_notifications_${profile.username}`, JSON.stringify(notifications));
+
+    setStep(6);
     setSubmitted(true);
   };
 
@@ -303,7 +423,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
           scale: 2
         });
         const link = document.createElement('a');
-        link.download = `patrocinio_${selectedContent?.title || selectedContent?.name}_${Date.now()}.png`;
+        link.download = `patrocinio_${orderCode}_${selectedContent?.title || selectedContent?.name}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         toast({ title: 'Imagem exportada com sucesso!' });
@@ -311,6 +431,11 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         toast({ title: 'Erro ao exportar imagem', variant: 'destructive' });
       }
     }
+  };
+
+  const copyOrderCode = () => {
+    navigator.clipboard.writeText(orderCode);
+    toast({ title: 'Código copiado!' });
   };
 
   // Step 1: Search
@@ -411,7 +536,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       {/* Select/Deselect All */}
       <div className="flex justify-between">
         <Button variant="outline" size="sm" onClick={selectAllEpisodes}>
-          Selecionar Todos
+          Selecionar Disponíveis
         </Button>
         <Button variant="ghost" size="sm" onClick={deselectAllEpisodes}>
           Limpar Seleção
@@ -430,25 +555,32 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
               const isSelected = selectedEpisodes.some(
                 e => e.season === episode.season_number && e.episode === episode.episode_number
               );
-              const isPaid = existingContent?.episodes?.some(
-                e => e.season === episode.season_number && e.episode === episode.episode_number && e.isPaid
+              const epStatus = existingContent?.episodes?.find(
+                e => e.season === episode.season_number && e.episode === episode.episode_number
               );
-              const hasPriority = existingContent?.episodes?.some(
-                e => e.season === episode.season_number && e.episode === episode.episode_number && e.isPriority
-              );
+              const isPaid = epStatus?.isPaid;
+              const hasPriority = epStatus?.isPriority;
+              const isEpisodeBlocked = isPaid && hasPriority;
               
               return (
                 <button
                   key={episode.id}
                   onClick={() => toggleEpisode(episode)}
+                  disabled={isEpisodeBlocked}
                   className={cn(
                     "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
-                    isSelected 
-                      ? "border-primary bg-primary/5" 
-                      : "border-border bg-muted/30 hover:border-primary/30"
+                    isEpisodeBlocked 
+                      ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
+                      : isSelected 
+                        ? "border-primary bg-primary/5" 
+                        : "border-border bg-muted/30 hover:border-primary/30"
                   )}
                 >
-                  <Checkbox checked={isSelected} />
+                  {isEpisodeBlocked ? (
+                    <Ban className="w-4 h-4 text-destructive" />
+                  ) : (
+                    <Checkbox checked={isSelected} disabled={isEpisodeBlocked} />
+                  )}
                   <img
                     src={tmdbService.getImageUrl(episode.still_path, 'w185')}
                     alt={episode.name}
@@ -459,12 +591,17 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
                       E{episode.episode_number}: {episode.name}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      {isPaid && (
-                        <Badge variant="secondary" className="text-xs bg-success/10 text-success">
-                          Pago
+                      {isEpisodeBlocked && (
+                        <Badge variant="destructive" className="text-xs">
+                          Bloqueado
                         </Badge>
                       )}
-                      {hasPriority && (
+                      {isPaid && !hasPriority && (
+                        <Badge variant="secondary" className="text-xs bg-info/10 text-info">
+                          Pago (pode priorizar)
+                        </Badge>
+                      )}
+                      {hasPriority && !isPaid && (
                         <Badge variant="secondary" className="text-xs bg-warning/10 text-warning">
                           Prioridade
                         </Badge>
@@ -534,21 +671,29 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         </div>
       </div>
       
-      {/* Existing content warning - Paid AND Priority */}
-      {existingContent?.isPaid && existingContent?.isPriority && (
-        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium text-destructive">Conteúdo já totalmente patrocinado!</p>
-            <p className="text-muted-foreground">
-              Este conteúdo já está pago e com prioridade ativa. Não é necessário pagar novamente.
+      {/* BLOCKED - Paid AND Priority */}
+      {isBlocked && (
+        <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 flex items-start gap-3">
+          <Ban className="w-6 h-6 text-destructive flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-destructive">Conteúdo Bloqueado!</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Este conteúdo já está completamente patrocinado (pago + prioridade). 
+              Não é possível fazer outro pedido para este item.
             </p>
+            <Button 
+              variant="outline" 
+              className="mt-3"
+              onClick={() => { resetModal(); setStep(1); }}
+            >
+              Escolher outro conteúdo
+            </Button>
           </div>
         </div>
       )}
       
-      {/* Existing content warning - Only Paid (no priority) */}
-      {existingContent?.isPaid && !existingContent?.isPriority && (
+      {/* Warning - Only Paid (no priority) - Can add priority */}
+      {!isBlocked && existingContent?.isPaid && !existingContent?.isPriority && (
         <div className="p-3 rounded-lg bg-info/10 border border-info/20 flex items-start gap-3">
           <Info className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
           <div className="text-sm">
@@ -561,7 +706,7 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       )}
       
       {/* Priority Option */}
-      {!existingContent?.isPriority && (
+      {!isBlocked && !existingContent?.isPriority && (
         <button
           onClick={() => setWantsPriority(!wantsPriority)}
           className={cn(
@@ -588,25 +733,115 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
       )}
       
       {/* Price Summary */}
-      <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">
-            {selectedContent?.media_type === 'movie' 
-              ? (contentDetails?.runtime > 120 ? 'Filme Longo' : 'Filme Curto')
-              : `${selectedEpisodes.length} Episódio(s)`
-            }
-          </span>
-          <span>R$ {pricing.base.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-        </div>
-        {wantsPriority && (
-          <div className="flex justify-between text-sm text-warning">
-            <span>Prioridade</span>
-            <span>+R$ {pricing.priority.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+      {!isBlocked && (
+        <>
+          <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {selectedContent?.media_type === 'movie' 
+                  ? (existingContent?.isPaid ? 'Já pago' : (contentDetails?.runtime > 120 ? 'Filme Longo' : 'Filme Curto'))
+                  : `${selectedEpisodes.length} Episódio(s)`
+                }
+              </span>
+              <span>R$ {pricing.base.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            {wantsPriority && (
+              <div className="flex justify-between text-sm text-warning">
+                <span>Prioridade</span>
+                <span>+R$ {pricing.priority.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
+              <span>Total</span>
+              <span className="text-primary">R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
           </div>
-        )}
-        <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
-          <span>Total</span>
-          <span className="text-primary">R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1" onClick={() => setStep(4)}>
+              Continuar
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // Step 4: Buyer Info
+  const renderBuyerInfo = () => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={() => setStep(3)}>
+          <ChevronLeft className="w-4 h-4 mr-1" />
+          Voltar
+        </Button>
+        <div className="flex-1">
+          <h3 className="font-semibold">Suas Informações</h3>
+          <p className="text-sm text-muted-foreground">Para que o criador possa entrar em contato</p>
+        </div>
+      </div>
+      
+      <div className="space-y-4 p-4 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2 mb-2">
+          <User className="w-5 h-5 text-primary" />
+          <h4 className="font-medium">Dados de Contato</h4>
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Seu Nome *</Label>
+          <Input
+            value={buyerInfo.name}
+            onChange={(e) => setBuyerInfo({ ...buyerInfo, name: e.target.value })}
+            placeholder="Como você quer ser chamado"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Email (opcional)</Label>
+          <Input
+            type="email"
+            value={buyerInfo.email}
+            onChange={(e) => setBuyerInfo({ ...buyerInfo, email: e.target.value })}
+            placeholder="seu@email.com"
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Plataforma de Contato *</Label>
+            <Select 
+              value={buyerInfo.contactPlatform} 
+              onValueChange={(v) => setBuyerInfo({ ...buyerInfo, contactPlatform: v })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {contactPlatforms.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Seu Contato *</Label>
+            <Input
+              value={buyerInfo.contactValue}
+              onChange={(e) => setBuyerInfo({ ...buyerInfo, contactValue: e.target.value })}
+              placeholder={
+                buyerInfo.contactPlatform === 'discord' ? 'nick#0000' :
+                buyerInfo.contactPlatform === 'whatsapp' ? '+55 00 00000-0000' :
+                '@seuusername'
+              }
+            />
+          </div>
         </div>
       </div>
       
@@ -622,196 +857,262 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
     </div>
   );
 
-  // Step 4: Summary with message
-  const renderSummary = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => setStep(3)}>
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Voltar
-        </Button>
-        <h3 className="font-semibold">Resumo do Pedido</h3>
-      </div>
-      
-      <div ref={summaryRef} className="p-4 rounded-lg bg-card border border-border space-y-4">
-        {/* Header */}
-        <div className="text-center pb-4 border-b border-border">
-          <h4 className="text-lg font-bold">Solicitação de Patrocínio</h4>
-          <p className="text-sm text-muted-foreground">Para: {profile.name} (@{profile.username})</p>
+  // Step 5: Summary with message
+  const renderSummary = () => {
+    // Group episodes by season
+    const episodesBySeason: { [key: number]: SelectedEpisode[] } = {};
+    selectedEpisodes.forEach(ep => {
+      if (!episodesBySeason[ep.season]) {
+        episodesBySeason[ep.season] = [];
+      }
+      episodesBySeason[ep.season].push(ep);
+    });
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setStep(4)}>
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Voltar
+          </Button>
+          <h3 className="font-semibold">Resumo do Pedido</h3>
         </div>
         
-        {/* Content */}
-        <div className="flex gap-4">
-          <img
-            src={tmdbService.getImageUrl(selectedContent?.poster_path, 'w154')}
-            alt={selectedContent?.title || selectedContent?.name}
-            className="w-24 h-36 object-cover rounded"
-          />
-          <div className="flex-1">
-            <h4 className="font-semibold text-lg">{selectedContent?.title || selectedContent?.name}</h4>
-            <Badge variant="outline" className="mt-1">
-              {selectedContent?.media_type === 'movie' ? 'Filme' : 'Série/Anime'}
-            </Badge>
+        <ScrollArea className="h-[400px]">
+          <div ref={summaryRef} className="p-4 rounded-lg bg-card border border-border space-y-4">
+            {/* Header */}
+            <div className="text-center pb-4 border-b border-border">
+              <h4 className="text-lg font-bold">Solicitação de Patrocínio</h4>
+              <p className="text-sm text-muted-foreground">Para: {profile.name} (@{profile.username})</p>
+            </div>
             
+            {/* Content */}
+            <div className="flex gap-4">
+              <img
+                src={tmdbService.getImageUrl(selectedContent?.poster_path, 'w154')}
+                alt={selectedContent?.title || selectedContent?.name}
+                className="w-24 h-36 object-cover rounded"
+              />
+              <div className="flex-1">
+                <h4 className="font-semibold text-lg">{selectedContent?.title || selectedContent?.name}</h4>
+                <Badge variant="outline" className="mt-1">
+                  {selectedContent?.media_type === 'movie' ? 'Filme' : 'Série/Anime'}
+                </Badge>
+                
+                {wantsPriority && (
+                  <Badge className="mt-2 ml-2 bg-warning text-warning-foreground">
+                    <Star className="w-3 h-3 mr-1 fill-current" />
+                    Com Prioridade
+                  </Badge>
+                )}
+              </div>
+            </div>
+            
+            {/* Episodes List - Full Detail */}
             {selectedContent?.media_type === 'tv' && selectedEpisodes.length > 0 && (
-              <div className="mt-3">
-                <p className="text-sm text-muted-foreground mb-1">Episódios selecionados:</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedEpisodes.slice(0, 10).map(ep => (
-                    <Badge key={`${ep.season}-${ep.episode}`} variant="secondary" className="text-xs">
-                      T{ep.season}E{ep.episode}
-                    </Badge>
-                  ))}
-                  {selectedEpisodes.length > 10 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{selectedEpisodes.length - 10} mais
-                    </Badge>
-                  )}
-                </div>
+              <div className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <p className="font-medium text-sm">Episódios Selecionados ({selectedEpisodes.length}):</p>
+                {Object.entries(episodesBySeason).map(([season, eps]) => (
+                  <div key={season} className="space-y-1">
+                    <p className="text-sm font-semibold text-primary">Temporada {season}</p>
+                    <div className="space-y-1 pl-3">
+                      {eps.sort((a, b) => a.episode - b.episode).map(ep => (
+                        <p key={`${ep.season}-${ep.episode}`} className="text-sm text-muted-foreground">
+                          Ep {ep.episode}: {ep.name}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             
-            {wantsPriority && (
-              <Badge className="mt-2 bg-warning text-warning-foreground">
-                <Star className="w-3 h-3 mr-1 fill-current" />
-                Com Prioridade
-              </Badge>
-            )}
-          </div>
-        </div>
-        
-        {/* Pricing */}
-        <div className="p-3 rounded-lg bg-muted/50 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Valor Base</span>
-            <span>R$ {pricing.base.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </div>
-          {wantsPriority && (
-            <div className="flex justify-between text-sm text-warning">
-              <span>Prioridade</span>
-              <span>+R$ {pricing.priority.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            {/* Buyer Info */}
+            <div className="p-3 rounded-lg bg-muted/30 border border-border">
+              <p className="font-medium text-sm mb-2">Dados do Comprador:</p>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><span className="text-foreground">Nome:</span> {buyerInfo.name}</p>
+                <p><span className="text-foreground">Contato:</span> {contactPlatforms.find(p => p.value === buyerInfo.contactPlatform)?.label}: {buyerInfo.contactValue}</p>
+                {buyerInfo.email && <p><span className="text-foreground">Email:</span> {buyerInfo.email}</p>}
+              </div>
             </div>
-          )}
-          <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
-            <span>Total</span>
-            <span className="text-primary">R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Message */}
-      <div className="space-y-2">
-        <Label>Mensagem para o Criador (opcional)</Label>
-        <Textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Alguma observação ou pedido especial?"
-          rows={3}
-        />
-      </div>
-      
-      <div className="flex gap-3 pt-4">
-        <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-          Cancelar
-        </Button>
-        <Button className="flex-1" onClick={handleSubmit}>
-          <Send className="w-4 h-4 mr-2" />
-          Finalizar Pedido
-        </Button>
-      </div>
-    </div>
-  );
-
-  // Step 5: Final with export
-  const renderFinal = () => (
-    <div className="space-y-4">
-      <div ref={summaryRef} className="p-6 rounded-lg bg-card border border-border space-y-4">
-        {/* Success Header */}
-        <div className="text-center">
-          <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8 text-success" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground">Pedido Criado!</h2>
-          <p className="text-muted-foreground mt-2">
-            Seu pedido de patrocínio foi registrado com sucesso.
-          </p>
-        </div>
-        
-        {/* Summary */}
-        <div className="p-4 rounded-lg bg-muted/50 border border-border">
-          <div className="flex gap-4">
-            <img
-              src={tmdbService.getImageUrl(selectedContent?.poster_path, 'w154')}
-              alt={selectedContent?.title || selectedContent?.name}
-              className="w-20 h-28 object-cover rounded"
-            />
-            <div className="flex-1">
-              <h4 className="font-semibold">{selectedContent?.title || selectedContent?.name}</h4>
-              <Badge variant="outline" className="mt-1 text-xs">
-                {selectedContent?.media_type === 'movie' ? 'Filme' : 'Série/Anime'}
-              </Badge>
-              {selectedContent?.media_type === 'tv' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedEpisodes.length} episódio(s)
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-primary">
-                R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
+            
+            {/* Pricing */}
+            <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Valor Base</span>
+                <span>R$ {pricing.base.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
               {wantsPriority && (
-                <Badge className="bg-warning/10 text-warning text-xs">
-                  <Star className="w-3 h-3 mr-1" />
-                  Prioridade
-                </Badge>
+                <div className="flex justify-between text-sm text-warning">
+                  <span>Prioridade</span>
+                  <span>+R$ {pricing.priority.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
               )}
+              <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
+                <span>Total</span>
+                <span className="text-primary">R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
             </div>
           </div>
+        </ScrollArea>
+        
+        {/* Message */}
+        <div className="space-y-2">
+          <Label>Mensagem para o Criador (opcional)</Label>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Alguma observação ou pedido especial?"
+            rows={3}
+          />
         </div>
         
-        {/* Contact Info */}
-        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Info className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold text-sm">Próximos Passos</h4>
-          </div>
-          <ol className="text-sm text-muted-foreground space-y-1 ml-6 list-decimal">
-            <li>Exporte a imagem do pedido clicando no botão abaixo</li>
-            <li>Entre em contato com o criador pelos dados abaixo</li>
-            <li>Envie a imagem e efetue o pagamento</li>
-          </ol>
-          
-          <div className="mt-4 p-3 rounded bg-muted/50">
-            <p className="text-sm font-medium">Contato do Criador:</p>
-            <p className="text-sm text-muted-foreground">@{profile.username}</p>
-            {profile.socialLinks?.youtube && (
-              <a href={profile.socialLinks.youtube} target="_blank" rel="noopener noreferrer" 
-                className="text-sm text-primary hover:underline block">
-                YouTube
-              </a>
-            )}
-            {profile.socialLinks?.instagram && (
-              <a href={profile.socialLinks.instagram} target="_blank" rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline block">
-                Instagram
-              </a>
-            )}
-          </div>
+        <div className="flex gap-3 pt-4">
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button className="flex-1" onClick={handleSubmit}>
+            <Send className="w-4 h-4 mr-2" />
+            Finalizar Pedido
+          </Button>
         </div>
       </div>
-      
-      <div className="flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={handleExportPNG}>
-          <Download className="w-4 h-4 mr-2" />
-          Exportar PNG
-        </Button>
-        <Button className="flex-1" onClick={() => onOpenChange(false)}>
-          Fechar
-        </Button>
+    );
+  };
+
+  // Step 6: Final with export
+  const renderFinal = () => {
+    // Group episodes by season for display
+    const episodesBySeason: { [key: number]: SelectedEpisode[] } = {};
+    selectedEpisodes.forEach(ep => {
+      if (!episodesBySeason[ep.season]) {
+        episodesBySeason[ep.season] = [];
+      }
+      episodesBySeason[ep.season].push(ep);
+    });
+    
+    return (
+      <div className="space-y-4">
+        <ScrollArea className="h-[450px]">
+          <div ref={summaryRef} className="p-6 rounded-lg bg-card border border-border space-y-4">
+            {/* Success Header */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-success" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">Pedido Criado!</h2>
+              <p className="text-muted-foreground mt-2">
+                Seu pedido de patrocínio foi registrado com sucesso.
+              </p>
+            </div>
+            
+            {/* Order Code */}
+            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center">
+              <p className="text-sm text-muted-foreground mb-1">Código do Pedido</p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-2xl font-mono font-bold text-primary tracking-wider">{orderCode}</p>
+                <Button variant="ghost" size="icon" onClick={copyOrderCode}>
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Guarde este código para acompanhar seu pedido
+              </p>
+            </div>
+            
+            {/* Summary */}
+            <div className="p-4 rounded-lg bg-muted/50 border border-border">
+              <div className="flex gap-4">
+                <img
+                  src={tmdbService.getImageUrl(selectedContent?.poster_path, 'w154')}
+                  alt={selectedContent?.title || selectedContent?.name}
+                  className="w-20 h-28 object-cover rounded"
+                />
+                <div className="flex-1">
+                  <h4 className="font-semibold">{selectedContent?.title || selectedContent?.name}</h4>
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {selectedContent?.media_type === 'movie' ? 'Filme' : 'Série/Anime'}
+                  </Badge>
+                  {wantsPriority && (
+                    <Badge className="ml-2 bg-warning/10 text-warning text-xs">
+                      <Star className="w-3 h-3 mr-1" />
+                      Prioridade
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-primary">
+                    R$ {pricing.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Full Episode List */}
+              {selectedContent?.media_type === 'tv' && selectedEpisodes.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border space-y-2">
+                  <p className="font-medium text-sm">Episódios ({selectedEpisodes.length}):</p>
+                  {Object.entries(episodesBySeason).map(([season, eps]) => (
+                    <div key={season} className="space-y-1">
+                      <p className="text-sm font-semibold text-primary">Temporada {season}</p>
+                      <div className="grid grid-cols-1 gap-1 pl-3">
+                        {eps.sort((a, b) => a.episode - b.episode).map(ep => (
+                          <p key={`${ep.season}-${ep.episode}`} className="text-xs text-muted-foreground">
+                            Ep {ep.episode}: {ep.name}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Contact Info */}
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="w-4 h-4 text-primary" />
+                <h4 className="font-semibold text-sm">Próximos Passos</h4>
+              </div>
+              <ol className="text-sm text-muted-foreground space-y-1 ml-6 list-decimal">
+                <li>Exporte a imagem do pedido clicando no botão abaixo</li>
+                <li>Entre em contato com o criador pelos dados abaixo</li>
+                <li>Informe o código do pedido e efetue o pagamento</li>
+                <li>Aguarde a confirmação do criador</li>
+              </ol>
+              
+              <div className="mt-4 p-3 rounded bg-muted/50">
+                <p className="text-sm font-medium">Contato do Criador:</p>
+                <p className="text-sm text-muted-foreground">@{profile.username}</p>
+                {profile.socialLinks?.youtube && (
+                  <a href={profile.socialLinks.youtube} target="_blank" rel="noopener noreferrer" 
+                    className="text-sm text-primary hover:underline block">
+                    YouTube
+                  </a>
+                )}
+                {profile.socialLinks?.instagram && (
+                  <a href={profile.socialLinks.instagram} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline block">
+                    Instagram
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+        
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={handleExportPNG}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar PNG
+          </Button>
+          <Button className="flex-1" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -831,8 +1132,9 @@ export function SponsorModal({ open, onOpenChange, profile }: SponsorModalProps)
         {step === 1 && renderSearch()}
         {step === 2 && renderEpisodeSelection()}
         {step === 3 && renderPriorityOption()}
-        {step === 4 && renderSummary()}
-        {step === 5 && renderFinal()}
+        {step === 4 && renderBuyerInfo()}
+        {step === 5 && renderSummary()}
+        {step === 6 && renderFinal()}
       </DialogContent>
     </Dialog>
   );
