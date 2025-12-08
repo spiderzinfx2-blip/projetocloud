@@ -771,6 +771,44 @@ export function ContentOrganizerTab() {
                 </div>
               </div>
 
+              {/* For movies: show paid/priority checkboxes */}
+              {addingContent.media_type === 'movie' && (
+                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Film className="w-4 h-4" />
+                    Status do Filme
+                  </h4>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={!!addContentSponsor}
+                        onCheckedChange={(c) => {
+                          if (!c) setAddContentSponsor('');
+                        }}
+                        disabled={!!addContentSponsor}
+                      />
+                      <span className={cn(addContentSponsor && "text-success font-medium")}>
+                        <DollarSign className="w-3 h-3 inline mr-1" />
+                        Pago
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={addContentPriority >= 4}
+                        onCheckedChange={(c) => setAddContentPriority(c ? 4 : 1)}
+                      />
+                      <span className={cn(addContentPriority >= 4 && "text-warning font-medium")}>
+                        <Star className="w-3 h-3 inline mr-1" />
+                        Prioridade
+                      </span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Marque se o filme já está pago e/ou tem prioridade
+                  </p>
+                </div>
+              )}
+
               {/* Episodes for TV Shows */}
               {addingContent.media_type === 'tv' && addContentSeasons.length > 0 && (
                 <div className="space-y-4">

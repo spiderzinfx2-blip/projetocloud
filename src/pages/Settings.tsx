@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Settings as SettingsIcon, User, Palette, Download, Building2, 
   Save, Check, Moon, Sun, Monitor, Upload, Trash2, FileJson, FileSpreadsheet,
-  Volume2, VolumeX
+  Volume2, VolumeX, Play
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth, UserData, saveUserData, loadUserData, ConfigEmpresa } from '@/hooks/useAuth';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from '@/hooks/use-toast';
+import { notificationSoundService, SoundType } from '@/services/notificationSoundService';
 
 const themeColors = [
   { id: 'blue', name: 'Azul', primary: '217 91% 60%', accent: '199 89% 48%' },
@@ -33,6 +35,7 @@ export default function Settings() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedColor, setSelectedColor] = useState('blue');
   const [notificationVolume, setNotificationVolume] = useState(50);
+  const [notificationSoundType, setNotificationSoundType] = useState<SoundType>('notification');
   
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -52,11 +55,10 @@ export default function Settings() {
   });
 
   useEffect(() => {
-    // Load notification volume from localStorage
-    const savedVolume = localStorage.getItem('notification-volume');
-    if (savedVolume) {
-      setNotificationVolume(parseInt(savedVolume));
-    }
+    // Load notification settings from service
+    const soundConfig = notificationSoundService.getConfig();
+    setNotificationVolume(soundConfig.volume);
+    setNotificationSoundType(soundConfig.soundType);
     
     if (user) {
       const saved = loadUserData(user.id);
@@ -78,34 +80,18 @@ export default function Settings() {
   const handleVolumeChange = (value: number[]) => {
     const volume = value[0];
     setNotificationVolume(volume);
-    localStorage.setItem('notification-volume', volume.toString());
-    
-    // Play test sound
-    if (volume > 0) {
-      playTestSound(volume);
-    }
+    notificationSoundService.saveConfig({ volume });
   };
 
-  const playTestSound = (volume: number) => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      const normalizedVolume = volume / 100;
-      gainNode.gain.setValueAtTime(normalizedVolume * 0.5, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) {
-      console.log('Audio not supported');
-    }
+  const handleSoundTypeChange = (type: SoundType) => {
+    setNotificationSoundType(type);
+    notificationSoundService.saveConfig({ soundType: type });
+    // Play the selected sound as preview
+    notificationSoundService.play(type);
+  };
+
+  const handleTestSound = () => {
+    notificationSoundService.play();
   };
 
   const handleSaveProfile = () => {
@@ -391,32 +377,70 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Notification Sound Volume */}
+            {/* Notification Sound Settings */}
             <div className="bg-card rounded-xl border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Volume de Notificações</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Som de Notificações</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Ajuste o volume do alerta sonoro para novos pedidos
+                Configure o alerta sonoro para novos pedidos de patrocínio
               </p>
               
-              <div className="flex items-center gap-4">
-                <VolumeX className="w-5 h-5 text-muted-foreground" />
-                <Slider
-                  value={[notificationVolume]}
-                  onValueChange={handleVolumeChange}
-                  max={100}
-                  step={5}
-                  className="flex-1"
-                />
-                <Volume2 className="w-5 h-5 text-muted-foreground" />
-                <span className="text-sm font-medium w-12 text-right">{notificationVolume}%</span>
+              {/* Sound Type Selector */}
+              <div className="space-y-4 mb-6">
+                <Label>Tipo de Som</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {notificationSoundService.getSoundTypes().map((sound) => (
+                    <button
+                      key={sound.id}
+                      onClick={() => handleSoundTypeChange(sound.id)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
+                        notificationSoundType === sound.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      {sound.name}
+                      {notificationSoundType === sound.id && <Check className="w-4 h-4 text-primary" />}
+                    </button>
+                  ))}
+                </div>
               </div>
               
-              {notificationVolume === 0 && (
-                <p className="text-xs text-warning mt-2 flex items-center gap-1">
-                  <VolumeX className="w-3 h-3" />
-                  Som de notificações desativado
-                </p>
-              )}
+              {/* Volume Slider */}
+              <div className="space-y-4">
+                <Label>Volume</Label>
+                <div className="flex items-center gap-4">
+                  <VolumeX className="w-5 h-5 text-muted-foreground" />
+                  <Slider
+                    value={[notificationVolume]}
+                    onValueChange={handleVolumeChange}
+                    max={100}
+                    step={5}
+                    className="flex-1"
+                  />
+                  <Volume2 className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-medium w-12 text-right">{notificationVolume}%</span>
+                </div>
+                
+                {notificationVolume === 0 && (
+                  <p className="text-xs text-warning flex items-center gap-1">
+                    <VolumeX className="w-3 h-3" />
+                    Som de notificações desativado
+                  </p>
+                )}
+              </div>
+              
+              {/* Test Button */}
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={handleTestSound}
+                disabled={notificationVolume === 0}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Testar Som
+              </Button>
             </div>
           </div>
         )}

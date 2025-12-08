@@ -206,8 +206,22 @@ export function OrdersTab() {
           });
         }
       } else {
-        // For movies, add as single item
-        if (existingIndex < 0) {
+        // For movies, add or update
+        if (existingIndex >= 0) {
+          // Update existing movie with priority if the order has priority
+          const existing = organizerContent[existingIndex];
+          const hasPriority = firstItem.wantsPriority;
+          
+          organizerContent[existingIndex] = {
+            ...existing,
+            isPaidAdvanced: true,
+            priority: hasPriority ? 4 : (existing.priority || 1),
+            sponsorName: order.buyerInfo.name,
+            sponsorContact: `${order.buyerInfo.contactPlatform}: ${order.buyerInfo.contactValue}`,
+            sponsorEmail: order.buyerInfo.email,
+            orderCode: order.orderCode
+          };
+        } else {
           organizerContent.push({
             id: parseInt(contentId),
             title: firstItem.title,
