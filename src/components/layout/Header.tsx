@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Menu, 
-  X, 
-  Film, 
-  LayoutDashboard, 
-  FolderKanban, 
-  Users, 
-  Settings,
-  ChevronDown
-} from "lucide-react";
+import { Menu, X, Film, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Projetos", href: "/projects", icon: FolderKanban },
-  { name: "Clientes", href: "/clients", icon: Users },
-  { name: "Configurações", href: "/settings", icon: Settings },
+  { name: "Recursos", href: "#features" },
+  { name: "Preços", href: "#pricing" },
+  { name: "Depoimentos", href: "#testimonials" },
+  { name: "Contato", href: "#contact" },
 ];
 
 export function Header() {
@@ -37,21 +29,20 @@ export function Header() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         isScrolled
-          ? "glass-strong shadow-card py-3"
-          : "bg-transparent py-4"
+          ? "bg-background/80 backdrop-blur-xl border-b border-border py-3"
+          : "bg-transparent py-5"
       )}
     >
       <div className="container-wide">
         <nav className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-all" />
-              <div className="relative bg-gradient-primary p-2 rounded-xl">
-                <Film className="h-6 w-6 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                <Film className="h-5 w-5 text-primary-foreground" />
               </div>
             </div>
-            <span className="font-display text-xl font-bold gradient-text">
+            <span className="text-xl font-bold text-foreground">
               Lumina
             </span>
           </Link>
@@ -59,19 +50,19 @@ export function Header() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navigation.map((item) => (
-              <Link
+              <a
                 key={item.name}
-                to={item.href}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                href={item.href}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
               >
-                <item.icon className="h-4 w-4" />
                 {item.name}
-              </Link>
+              </a>
             ))}
           </div>
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             <Button variant="ghost" size="sm">
               Entrar
             </Button>
@@ -81,32 +72,34 @@ export function Header() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-accent/50 transition-colors"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </nav>
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 p-4 glass rounded-2xl animate-fade-in">
+          <div className="md:hidden mt-4 p-4 bg-card border border-border rounded-2xl shadow-xl animate-fade-in">
             <div className="flex flex-col gap-2">
               {navigation.map((item) => (
-                <Link
+                <a
                   key={item.name}
-                  to={item.href}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                  href={item.href}
+                  className="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <item.icon className="h-5 w-5" />
                   {item.name}
-                </Link>
+                </a>
               ))}
               <div className="border-t border-border my-2" />
               <Button variant="ghost" className="justify-start">
