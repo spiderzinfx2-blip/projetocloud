@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const plans = [
@@ -53,79 +54,98 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="section-padding bg-muted/30">
-      <div className="container-wide">
+    <section id="pricing" className="section-padding relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-muted/30" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-primary/5 rounded-full blur-3xl" />
+      
+      <div className="relative container-wide">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-            Preços
-          </span>
-          <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-            Planos que{" "}
-            <span className="gradient-text">cabem no seu bolso</span>
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            Escolha o plano ideal para o tamanho da sua operação. Sem surpresas, sem taxas ocultas.
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <span className="inline-block text-primary text-sm font-semibold tracking-wide uppercase mb-4">
+              Preços
+            </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6">
+              Planos que{" "}
+              <span className="gradient-text">cabem no seu bolso</span>
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Escolha o plano ideal para o tamanho da sua operação. Sem surpresas, sem taxas ocultas.
+            </p>
+          </motion.div>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {plans.map((plan, index) => (
-            <div
+            <motion.div
               key={plan.name}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
               className={cn(
-                "relative p-6 rounded-2xl border transition-all duration-300",
+                "relative rounded-2xl transition-all duration-300",
                 plan.popular
-                  ? "bg-gradient-to-b from-primary/5 to-card border-primary/50 shadow-glow"
-                  : "bg-card border-border hover:border-primary/30",
-                "opacity-0 animate-fade-in-up"
+                  ? "bg-gradient-to-b from-primary/10 to-card border-2 border-primary shadow-xl scale-105 lg:scale-110"
+                  : "bg-card border border-border hover:border-primary/30 hover:shadow-lg"
               )}
-              style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
             >
               {/* Popular badge */}
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-primary text-primary-foreground text-xs font-semibold">
-                    <Sparkles className="h-3 w-3" />
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-lg">
+                    <Sparkles className="h-4 w-4" />
                     Mais Popular
                   </div>
                 </div>
               )}
 
-              {/* Plan header */}
-              <div className="text-center mb-6 pt-2">
-                <h3 className="font-display text-xl font-bold mb-1">{plan.name}</h3>
-                <p className="text-muted-foreground text-sm">{plan.description}</p>
+              <div className="p-8">
+                {/* Plan header */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
+                  <p className="text-muted-foreground text-sm">{plan.description}</p>
+                </div>
+
+                {/* Price */}
+                <div className="mb-8">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                    {plan.period && (
+                      <span className="text-muted-foreground">{plan.period}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                        <Check className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-foreground">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA */}
+                <Button
+                  variant={plan.popular ? "hero" : "outline"}
+                  className="w-full group"
+                  size="lg"
+                >
+                  {plan.cta}
+                  <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
+                </Button>
               </div>
-
-              {/* Price */}
-              <div className="text-center mb-6">
-                <span className="font-display text-4xl font-bold">{plan.price}</span>
-                <span className="text-muted-foreground">{plan.period}</span>
-              </div>
-
-              {/* Features */}
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-primary" />
-                    </div>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              <Button
-                variant={plan.popular ? "hero" : "outline"}
-                className="w-full"
-                size="lg"
-              >
-                {plan.cta}
-              </Button>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
