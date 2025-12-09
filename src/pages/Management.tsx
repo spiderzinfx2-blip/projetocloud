@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Briefcase, DollarSign, FileText, BookOpen, Kanban, Plus, Edit2, Trash2, Eye } from 'lucide-react';
+import { BarChart3, Users, Briefcase, DollarSign, FileText, BookOpen, Kanban, Plus, Edit2, Trash2, Eye, TrendingUp } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth, UserData, saveUserData, loadUserData, Cliente, Servico, Trabalho } from '@/hooks/useAuth';
@@ -17,23 +17,31 @@ import { FaturamentoTab } from '@/components/management/FaturamentoTab';
 import { toast } from '@/hooks/use-toast';
 
 // Stats Card Component
-const StatCard = ({ icon: Icon, label, value, gradient }: { 
+const StatCard = ({ icon: Icon, label, value, gradient, trend }: { 
   icon: React.ElementType; 
   label: string; 
   value: string | number;
   gradient: string;
+  trend?: string;
 }) => (
-  <div className="bg-card rounded-xl border border-border p-5 hover:shadow-card transition-shadow">
-    <div className="flex items-center gap-4">
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br", gradient)}>
+  <motion.div 
+    whileHover={{ y: -2 }}
+    className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:border-primary/20 transition-all"
+  >
+    <div className="flex items-start justify-between mb-4">
+      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg", gradient)}>
         <Icon className="w-6 h-6 text-white" />
       </div>
-      <div>
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold text-foreground">{value}</p>
-      </div>
+      {trend && (
+        <span className="flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+          <TrendingUp className="w-3 h-3" />
+          {trend}
+        </span>
+      )}
     </div>
-  </div>
+    <p className="text-2xl font-bold text-foreground mb-1">{value}</p>
+    <p className="text-sm text-muted-foreground">{label}</p>
+  </motion.div>
 );
 
 // Resumo Tab
@@ -55,6 +63,7 @@ const ResumoTab = ({ trabalhos, clientes, servicos }: {
         label="Total de Clientes" 
         value={clientes.length}
         gradient="from-blue-500 to-cyan-500"
+        trend="+2"
       />
       <StatCard 
         icon={Briefcase} 
@@ -67,6 +76,7 @@ const ResumoTab = ({ trabalhos, clientes, servicos }: {
         label="Trabalhos Realizados" 
         value={trabalhos.length}
         gradient="from-emerald-500 to-teal-500"
+        trend="+5"
       />
       <StatCard 
         icon={DollarSign} 
@@ -92,10 +102,13 @@ const ClientesTab = ({
   onDelete: (id: string) => void;
   onView?: (cliente: Cliente) => void;
 }) => (
-  <div className="bg-card rounded-xl border border-border overflow-hidden">
-    <div className="flex items-center justify-between p-5 border-b border-border">
-      <h3 className="text-lg font-semibold text-foreground">Clientes</h3>
-      <Button size="sm" onClick={onAdd}>
+  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+    <div className="flex items-center justify-between p-6 border-b border-border">
+      <div>
+        <h3 className="text-lg font-bold text-foreground">Clientes</h3>
+        <p className="text-sm text-muted-foreground">{clientes.length} cadastrados</p>
+      </div>
+      <Button onClick={onAdd} className="rounded-xl">
         <Plus className="w-4 h-4 mr-2" />
         Novo Cliente
       </Button>
@@ -104,29 +117,29 @@ const ClientesTab = ({
     {clientes.length > 0 ? (
       <div className="divide-y divide-border">
         {clientes.map((cliente) => (
-          <div key={cliente.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+          <div key={cliente.id} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
             <div 
-              className="flex items-center gap-3 cursor-pointer flex-1"
+              className="flex items-center gap-4 cursor-pointer flex-1"
               onClick={() => onView?.(cliente)}
             >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-md">
+                <span className="text-sm font-bold text-primary-foreground">
                   {cliente.nome.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="font-medium text-foreground hover:text-primary transition-colors">{cliente.nome}</p>
+                <p className="font-semibold text-foreground hover:text-primary transition-colors">{cliente.nome}</p>
                 <p className="text-sm text-muted-foreground">{cliente.email || cliente.telefone || 'Sem contato'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView?.(cliente)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => onView?.(cliente)}>
                 <Eye className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(cliente)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => onEdit(cliente)}>
                 <Edit2 className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(cliente.id)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(cliente.id)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
@@ -134,9 +147,15 @@ const ClientesTab = ({
         ))}
       </div>
     ) : (
-      <div className="p-12 text-center">
-        <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-        <p className="text-muted-foreground">Nenhum cliente cadastrado</p>
+      <div className="p-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Users className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground mb-4">Nenhum cliente cadastrado</p>
+        <Button onClick={onAdd} variant="outline" className="rounded-xl">
+          <Plus className="w-4 h-4 mr-2" />
+          Adicionar primeiro cliente
+        </Button>
       </div>
     )}
   </div>
@@ -154,41 +173,54 @@ const ServicosTab = ({
   onEdit: (servico: Servico) => void;
   onDelete: (id: string) => void;
 }) => (
-  <div className="bg-card rounded-xl border border-border overflow-hidden">
-    <div className="flex items-center justify-between p-5 border-b border-border">
-      <h3 className="text-lg font-semibold text-foreground">Serviços</h3>
-      <Button size="sm" onClick={onAdd}>
+  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+    <div className="flex items-center justify-between p-6 border-b border-border">
+      <div>
+        <h3 className="text-lg font-bold text-foreground">Serviços</h3>
+        <p className="text-sm text-muted-foreground">{servicos.length} cadastrados</p>
+      </div>
+      <Button onClick={onAdd} className="rounded-xl">
         <Plus className="w-4 h-4 mr-2" />
         Novo Serviço
       </Button>
     </div>
     
     {servicos.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
         {servicos.map((servico) => (
-          <div key={servico.id} className="p-4 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors group">
-            <div className="flex items-start justify-between mb-2">
-              <p className="font-medium text-foreground">{servico.nome}</p>
+          <motion.div 
+            key={servico.id} 
+            whileHover={{ y: -2 }}
+            className="p-5 rounded-xl bg-muted/30 border border-border hover:border-primary/30 transition-all group"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <p className="font-semibold text-foreground">{servico.nome}</p>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(servico)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => onEdit(servico)}>
                   <Edit2 className="w-3 h-3" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(servico.id)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-destructive hover:text-destructive" onClick={() => onDelete(servico.id)}>
                   <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground mb-3">{servico.descricao || 'Sem descrição'}</p>
-            <p className="text-lg font-bold text-primary">
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{servico.descricao || 'Sem descrição'}</p>
+            <p className="text-xl font-bold text-primary">
               R$ {servico.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
     ) : (
-      <div className="p-12 text-center">
-        <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-        <p className="text-muted-foreground">Nenhum serviço cadastrado</p>
+      <div className="p-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Briefcase className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground mb-4">Nenhum serviço cadastrado</p>
+        <Button onClick={onAdd} variant="outline" className="rounded-xl">
+          <Plus className="w-4 h-4 mr-2" />
+          Adicionar primeiro serviço
+        </Button>
       </div>
     )}
   </div>
@@ -210,10 +242,13 @@ const TrabalhosTab = ({
   onEdit: (trabalho: Trabalho) => void;
   onDelete: (id: string) => void;
 }) => (
-  <div className="bg-card rounded-xl border border-border overflow-hidden">
-    <div className="flex items-center justify-between p-5 border-b border-border">
-      <h3 className="text-lg font-semibold text-foreground">Trabalhos</h3>
-      <Button size="sm" onClick={onAdd}>
+  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+    <div className="flex items-center justify-between p-6 border-b border-border">
+      <div>
+        <h3 className="text-lg font-bold text-foreground">Trabalhos</h3>
+        <p className="text-sm text-muted-foreground">{trabalhos.length} registrados</p>
+      </div>
+      <Button onClick={onAdd} className="rounded-xl">
         <Plus className="w-4 h-4 mr-2" />
         Novo Trabalho
       </Button>
@@ -226,22 +261,27 @@ const TrabalhosTab = ({
           const servico = servicos.find((s) => s.id === trabalho.servicoId);
           
           const statusStyles: Record<string, string> = {
-            'recebido': 'bg-success/10 text-success',
-            '50%': 'bg-warning/10 text-warning',
-            'pendente': 'bg-info/10 text-info',
-            'cancelado': 'bg-destructive/10 text-destructive'
+            'recebido': 'bg-success/10 text-success border-success/20',
+            '50%': 'bg-warning/10 text-warning border-warning/20',
+            'pendente': 'bg-info/10 text-info border-info/20',
+            'cancelado': 'bg-destructive/10 text-destructive border-destructive/20'
           };
 
           return (
-            <div key={trabalho.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="font-medium text-foreground">{servico?.nome || trabalho.descricao || 'Serviço'}</p>
-                <p className="text-sm text-muted-foreground">{cliente?.nome || 'Cliente'} • {new Date(trabalho.data).toLocaleDateString('pt-BR')}</p>
+            <div key={trabalho.id} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">{servico?.nome || trabalho.descricao || 'Serviço'}</p>
+                  <p className="text-sm text-muted-foreground">{cliente?.nome || 'Cliente'} • {new Date(trabalho.data).toLocaleDateString('pt-BR')}</p>
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <span className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium",
-                  statusStyles[trabalho.status] || 'bg-muted text-muted-foreground'
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border",
+                  statusStyles[trabalho.status] || 'bg-muted text-muted-foreground border-border'
                 )}>
                   {trabalho.status}
                 </span>
@@ -249,10 +289,10 @@ const TrabalhosTab = ({
                   R$ {trabalho.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(trabalho)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => onEdit(trabalho)}>
                     <Edit2 className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(trabalho.id)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(trabalho.id)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -262,9 +302,15 @@ const TrabalhosTab = ({
         })}
       </div>
     ) : (
-      <div className="p-12 text-center">
-        <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-        <p className="text-muted-foreground">Nenhum trabalho registrado</p>
+      <div className="p-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <FileText className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground mb-4">Nenhum trabalho registrado</p>
+        <Button onClick={onAdd} variant="outline" className="rounded-xl">
+          <Plus className="w-4 h-4 mr-2" />
+          Adicionar primeiro trabalho
+        </Button>
       </div>
     )}
   </div>
@@ -417,19 +463,21 @@ export default function Management() {
   return (
     <AppLayout title="Gerenciamento" subtitle="Clientes, Serviços e Faturamento">
       {/* Tab Navigation */}
-      <div className="mb-6 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b border-border overflow-x-auto scrollbar-thin">
-        <div className="flex gap-1">
+      <div className="mb-8 -mx-6 lg:-mx-8 px-6 lg:px-8 overflow-x-auto scrollbar-thin">
+        <div className="inline-flex gap-2 p-1.5 bg-muted/50 rounded-2xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "text-primary border-primary bg-primary/5"
-                    : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50"
+                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                  isActive
+                    ? "bg-background text-foreground shadow-md"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -473,7 +521,7 @@ export default function Management() {
         )}
         {activeTab === 'trabalhos' && (
           <TrabalhosTab 
-            trabalhos={userData.trabalhos || []} 
+            trabalhos={userData.trabalhos || []}
             clientes={userData.clientes || []}
             servicos={userData.servicos || []}
             onAdd={() => { setEditingTrabalho(null); setTrabalhoModalOpen(true); }}
@@ -483,20 +531,20 @@ export default function Management() {
         )}
         {activeTab === 'faturamento' && (
           <FaturamentoTab 
-            trabalhos={userData.trabalhos || []} 
+            trabalhos={userData.trabalhos || []}
             clientes={userData.clientes || []}
             servicos={userData.servicos || []}
           />
         )}
         {activeTab === 'notas' && (
           <NotasTab 
-            notas={userData.notionPages || []} 
+            notas={userData.notionPages || []}
             onSave={handleSaveNotas}
           />
         )}
         {activeTab === 'kanban' && (
           <KanbanTab 
-            columns={userData.trelloBoards || []} 
+            columns={userData.trelloBoards || []}
             onSave={handleSaveKanban}
           />
         )}
@@ -505,45 +553,41 @@ export default function Management() {
       {/* Modals */}
       <ClienteModal
         open={clienteModalOpen}
-        onOpenChange={setClienteModalOpen}
-        cliente={editingCliente}
+        onOpenChange={(open) => { if (!open) { setClienteModalOpen(false); setEditingCliente(null); } }}
         onSave={handleSaveCliente}
+        cliente={editingCliente}
       />
+      
       <ServicoModal
         open={servicoModalOpen}
-        onOpenChange={setServicoModalOpen}
+        onOpenChange={(open) => { if (!open) { setServicoModalOpen(false); setEditingServico(null); } }}
+        onSave={handleSaveServico}
         servico={editingServico}
         categorias={userData.categorias || []}
-        onSave={handleSaveServico}
       />
+      
       <TrabalhoModal
         open={trabalhoModalOpen}
-        onOpenChange={setTrabalhoModalOpen}
+        onOpenChange={(open) => { if (!open) { setTrabalhoModalOpen(false); setEditingTrabalho(null); } }}
+        onSave={handleSaveTrabalho}
         trabalho={editingTrabalho}
         clientes={userData.clientes || []}
         servicos={userData.servicos || []}
-        onSave={handleSaveTrabalho}
       />
+
       <ClienteDetails
         open={clienteDetailsOpen}
-        onOpenChange={setClienteDetailsOpen}
+        onOpenChange={(open) => { if (!open) { setClienteDetailsOpen(false); setViewingCliente(null); } }}
         cliente={viewingCliente}
         trabalhos={userData.trabalhos || []}
         servicos={userData.servicos || []}
-        onEdit={(cliente) => { 
-          setClienteDetailsOpen(false);
-          setEditingCliente(cliente); 
-          setClienteModalOpen(true); 
-        }}
-        onViewTrabalho={(trabalho) => {
-          setClienteDetailsOpen(false);
-          setViewingTrabalho(trabalho);
-          setTrabalhoDetailsOpen(true);
-        }}
+        onEdit={(cliente) => { setEditingCliente(cliente); setClienteModalOpen(true); setClienteDetailsOpen(false); }}
+        onViewTrabalho={(trabalho) => { setViewingTrabalho(trabalho); setTrabalhoDetailsOpen(true); }}
       />
+
       <TrabalhoDetails
         open={trabalhoDetailsOpen}
-        onOpenChange={setTrabalhoDetailsOpen}
+        onOpenChange={(open) => { if (!open) { setTrabalhoDetailsOpen(false); setViewingTrabalho(null); } }}
         trabalho={viewingTrabalho}
         cliente={userData.clientes?.find(c => c.id === viewingTrabalho?.clienteId) || null}
         servicos={userData.servicos || []}
